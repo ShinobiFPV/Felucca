@@ -59,6 +59,11 @@ Already cloned on `D:` with the submodule (`git submodule update --init`). From 
 git clone --recurse-submodules git@github.com:ShinobiFPV/Felucca.git
 ```
 
+**Line endings:** Git for Windows defaults to `core.autocrlf=true`, which checks the shell scripts out with CRLF,
+and `sh` in WSL then fails on them. These clones (Felucca, its `firmware/engines` submodule, and Felucca-WebApp) are
+set to `git config core.autocrlf false`, so they keep upstream's LF. Do the same in any fresh clone made from
+Windows, or clone from inside WSL.
+
 Remotes: `origin` = the ShinobiFPV fork; `upstream` = hugelton/Felucca, **fetch only** (its push URL is set to
 `DISABLED`, so nothing can be pushed upstream by accident).
 
