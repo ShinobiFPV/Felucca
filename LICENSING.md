@@ -21,6 +21,13 @@ Three source files are ports and keep the licence of their originals:
 `firmware/src/fm6_core.c` (msfa, Apache-2.0). The firmware built with them is GPL-3.0-only as
 a whole.
 
+The ShinTech fork adds two YM2612 cores in `firmware/src/chips/`: `opn2.c`, a C port of ymfm
+(BSD-3-Clause, the licence of its original), and Nuked-OPN2 (`ym3438.c`, `ym3438.h`, unmodified,
+LGPL-2.1-or-later, which section 3 of the LGPL lets a GPL-3.0 program take as GPL). Both licences
+are compatible with GPL-3.0-only, and the firmware built with them stays GPL-3.0-only as a whole.
+`chips/shim/string.h` is the fork's own (GPL-3.0-only). The Genesis Plus GX sound cores are not
+used: their licence forbids commercial use.
+
 Five engines and the code they share are under the MIT licence, not the GPL. They are
 Hügelton Instruments' own work and live in their own repository, Felucca-Engines
 (<https://github.com/hugelton/Felucca-Engines>), included here as the git submodule
@@ -65,6 +72,8 @@ All by Hügelton Instruments (Leo Kuroshita), in this tree:
 | X0X by charlesvestal (<https://github.com/charlesvestal/fm1-x0x>), a Felucca fork: the design of the browser emulator (the worklet, the device clock driven by its audio, the exports); its files credit it in their headers | GPL-3.0 | `web/emu/` |
 | The second core: its start, mailbox and guards from X0X by charlesvestal (<https://github.com/charlesvestal/fm1-x0x>, with the dual-core findings of Melodee by keremimo, <https://github.com/keremimo/melodee>); its audio split, measurements and hardening after Jangada by zednaked (<https://github.com/zednaked/jangada>); each credited in its files | GPL-3.0 | `firmware/hal/fm1_cpu1.{h,S}`, `firmware/src/fx.c`, `tests/c1_host.h`, `tests/dualcore_test.c` |
 | DotGothic16 font by The DotGothic16 Project Authors (<https://github.com/fontworks-fonts/DotGothic16>): the browser emulator's knob labels, served with its page (cut to printable ASCII; the font declares no Reserved Font Name) | SIL OFL 1.1 | `web/emu/fonts/DotGothic16-subset.woff`, `LICENSES/OFL-DotGothic16.txt` (also `web/emu/fonts/OFL.txt`) |
+| ymfm by Aaron Giles (<https://github.com/aaronsgiles/ymfm>): the ShinTech fork's OPN2 core, ported to C (the YM2612 path only) | BSD-3-Clause | `firmware/src/chips/opn2.c`, `LICENSES/BSD-3-Clause-ymfm.txt` |
+| Nuked-OPN2 by Alexey Khokholov (<https://github.com/nukeykt/Nuked-OPN2>): the cycle-accurate YM2612 the ShinTech fork benchmarks against ymfm (built only with `FELUCCA_CHIPBENCH=1`), vendored unmodified | LGPL-2.1-or-later | `firmware/src/chips/ym3438.{c,h}`, `LICENSES/LGPL-2.1-Nuked-OPN2.txt` |
 | JieLi AC79 SDK by JieLi Technology: three of its files go into every `.fwsc` package (below); none are in this tree | Apache-2.0 | `LICENSES/Apache-2.0.txt` |
 
 On the device, HOME held > ABOUT opens the information screen; turning PRESETS scrolls on into

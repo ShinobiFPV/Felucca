@@ -19,6 +19,10 @@ thanks the work below; each keeps its own licence (see [LICENSE](LICENSE), [LICE
   measurements and hardening after [Jangada](https://github.com/zednaked/jangada) by [zednaked](https://github.com/zednaked) (all GPL-3.0)
 - Browser emulator: after [X0X](https://github.com/charlesvestal/fm1-x0x) by [charlesvestal](https://github.com/charlesvestal) (GPL-3.0), a Felucca fork whose browser build showed the way
 - Package format and boot files: [JieLi AC79 SDK](https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK) ([Apache-2.0](LICENSES/Apache-2.0.txt); three of its files are in every package, none in this tree)
+- ShinTech fork (16BIT: the OPN2, PSG and PCM8 engines): William Kew, ShinTech Electronics
+  - OPN2: a C port of [ymfm](https://github.com/aaronsgiles/ymfm) by Aaron Giles ([BSD-3-Clause](LICENSES/BSD-3-Clause-ymfm.txt));
+    [Nuked-OPN2](https://github.com/nukeykt/Nuked-OPN2) by Alexey Khokholov (Nuke.YKT), benchmarked as the cycle-accurate
+    candidate ([LGPL-2.1-or-later](LICENSES/LGPL-2.1-Nuked-OPN2.txt))
 - Contributions: [keremimo](https://github.com/keremimo) (white-key scales, #2), [ChanceTheMaker](https://github.com/ChanceTheMaker)
   (TRS MIDI, bend, sustain and clock, palettes, favourites, editor display settings: #8, #10, #11, #12),
   [andreahaku](https://github.com/andreahaku) (sample recording and trim, #29; SLICE manual slices and tests, #27, #22),

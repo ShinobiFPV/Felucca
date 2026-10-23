@@ -42,6 +42,9 @@
 #ifndef FELUCCA_VERSION
 #define FELUCCA_VERSION "v1.6.1" /* shown in the menu, the console and the editor; build.py --release X.Y */
 #endif
+#ifndef FELUCCA_CHIPBENCH
+#define FELUCCA_CHIPBENCH 0      /* ShinTech Phase 1: the OPN2 core benchmark on the console (chipbench.c); 0 = none of it */
+#endif
 #if FELUCCA_OTA && !FELUCCA_FLASH
 #error "FELUCCA_OTA needs FELUCCA_FLASH"
 #endif
@@ -77,6 +80,7 @@
 #include "mod.c"               /* the modulation matrix, used by voice.c and fx.c */
 #include "voice.c"
 #include "slicer.c"              /* per-track SLICER insert, used by fx.c */
+#include "chipbench.c"           /* ShinTech: FELUCCA_CHIPBENCH, the OPN2 core benchmark (fx.c mix_block) */
 #include "fx.c"
 
 /* ------------------------------------------------- MIDI, sequencer --- */

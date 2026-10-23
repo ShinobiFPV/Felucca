@@ -364,6 +364,10 @@ static void con_exec(const char *p)
         con_inp();
     else if (con_word(&p, "params"))
         con_params();
+#if FELUCCA_CHIPBENCH
+    else if (con_word(&p, "bench"))
+        cb_console(p);                                 /* ShinTech: the OPN2 core benchmark (chipbench.c) */
+#endif
     else if (con_word(&p, "memr"))
         con_memr(p);
 #if FELUCCA_FLASH
