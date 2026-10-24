@@ -50,6 +50,11 @@
 #define UP_USED 0xA5u
 #define UP_VER 4u                                /* 2 since 1.0; 1 is read too (PHYS MODEL 2 was DUST) */
 #define UP_VER_GRID 5u                           /* 2 with a drum grid as the pattern (see the top) */
+/* ShinTech: version 6, a record of an engine Felucca 1.6 does not have (engine 14 on: OPN2 ..), laid out as version
+ * 4 (packed values, no grid). Its patch is in the user presets' patch object as an FM6 record's (up_fm6.c). Firmware
+ * without these engines reads no version 6 (nor engine 14): the slot shows empty there */
+#define UP_VER_16BIT 6u
+static uint32_t up_ver_for(uint32_t engine, uint32_t ver) { return engine >= NENG_V16 ? UP_VER_16BIT : ver; }
 #define UP_BANK_MAGIC 0x31425055u                /* "UPB1" */
 typedef struct {
     uint8_t used, ver, engine, np;               /* UP_USED, UP_VER, engine, P_COUNT when stored */
@@ -107,7 +112,8 @@ static void up_set_cat(up_rec_t *r, uint32_t c)  /* c CAT_BASS..CAT_OTHER; a rec
 
 static int up_valid(const up_rec_t *r)
 {
-    if (!(r->used == UP_USED && r->ver >= 1u && r->ver <= UP_VER_GRID && r->engine < NENGINES &&
+    if (!(r->used == UP_USED && r->ver >= 1u && (r->ver <= UP_VER_GRID || (r->ver == UP_VER_16BIT && r->engine >= NENG_V16)) &&
+          (r->engine < NENG_V16 || r->ver == UP_VER_16BIT) && r->engine < NENGINES &&
           r->np >= 8u && r->np <= (r->ver >= 4u ? UP_PMAX * 2u : UP_PMAX) && r->name[0])) return 0;
     if (r->ver >= 4u) for (uint32_t i = 0; i < r->np; i++) if (r->packed[i] > 191u) return 0;
     return 1;
@@ -235,7 +241,7 @@ static int up_parse(const uint8_t *a, uint32_t na, up_rec_t *r, uint32_t *slot)
     r = &staged;
     memset(r, 0, sizeof *r);
     r->used = UP_USED;
-    r->ver = UP_VER;
+    r->ver = (uint8_t)up_ver_for(a[1], UP_VER);
     r->engine = a[1];
     r->np = P_COUNT;
     for (i = 0; i < n; i++)
@@ -298,7 +304,7 @@ static void up_boot(void)                      /* persist_boot: the banks from f
     fvb_boot();                                  /* FM6's voice bank: a staged one finished, its voices */
 #ifdef FELUCCA_FAVORITES
     for (uint32_t k = 0; k < UP_SLOTS; k++)
-        if (!up_used(k)) favorite_set(NENGINES, k, 0);
+        if (!up_used(k)) favorite_set(FAV_USER, k, 0);
 #endif
 }
 
@@ -343,7 +349,7 @@ static int up_put(uint32_t k, const up_rec_t *r)
 #endif
     if (!r) {
 #ifdef FELUCCA_FAVORITES
-        if (favorite_set(NENGINES, k, 0)) settings_save();
+        if (favorite_set(FAV_USER, k, 0)) settings_save();
 #endif
         uint32_t i;
         for (i = 0; i < NTRK; i++)
@@ -402,8 +408,8 @@ static int up_store_cat(uint32_t k, const char *name, uint32_t cat)
     uint32_t i;
     memset(&r, 0, sizeof r);
     r.used = UP_USED;
-    r.ver = UP_VER;
     r.engine = TSEL->eng_req;
+    r.ver = (uint8_t)up_ver_for(r.engine, UP_VER);
     r.np = P_COUNT;
     up_set_name(&r, k, name);
     for (i = 0; i < P_COUNT; i++)
@@ -424,7 +430,7 @@ static int up_store_cat(uint32_t k, const char *name, uint32_t cat)
     }
     {
         int rc = up_put(k, &r);                         /* the record first, then its FM6 patch (up_fm6.c) */
-        if ((rc == 0 || rc == 3) && r.engine == ENGI_FM6) {
+        if ((rc == 0 || rc == 3) && (r.engine == ENGI_FM6 || r.engine == ENGI_OPN2)) {   /* (and OPN2's: up_fm6.c) */
             int u = upf_store(k, (uint32_t)(TSEL - trk));
             if (u == 2)
                 rc = 2;

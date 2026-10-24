@@ -1447,6 +1447,10 @@ static void clean_engine_of(track_t *t)
         fm6_set_patch(trk_index(t), v);
         fm6_adopt(trk_index(t));
     }
+    if (ei == ENGI_OPN2) {                            /* ShinTech: OPN2's init patch, the track's own (SLOT: OWN) */
+        op2_set_patch(trk_index(t), &OP2_INIT);
+        op2_adopt(trk_index(t));
+    }
     load_end(t);
 }
 static void clean_engine(void) { clean_engine_of(TSEL); }
@@ -1561,7 +1565,7 @@ static uint32_t sound_cat(uint32_t e, uint32_t k) { return e == NENGINES ? up_ca
 static int list_keep(uint32_t e, uint32_t k)
 {
     uint32_t m = list_mode();
-    return m == 1u ? favorite_has(e, k) : m ? sound_cat(e, k) == m - 1u : 1;
+    return m == 1u ? favorite_has(e == NENGINES ? FAV_USER : e, k) : m ? sound_cat(e, k) == m - 1u : 1;
 }
 /* the category of the sound track t plays: its user preset's, else its factory preset's (the NAME screen's default) */
 static uint32_t track_cat(const track_t *t)
@@ -1598,7 +1602,7 @@ static uint32_t preset_at(uint32_t n, uint32_t *k)
 static int preset_favorite(void)
 {
     uint32_t k = user_of(TSEL);
-    return favorite_has(k < UP_SLOTS ? NENGINES : TSEL->eng_req,
+    return favorite_has(k < UP_SLOTS ? FAV_USER : TSEL->eng_req,
                                         k < UP_SLOTS ? k : TSEL->preset);
 }
 /* #197: a settings change made by a knob (PRESETS > LIST, the FAV mark on PRESETS and in the EDIT layer) is written
@@ -1626,7 +1630,7 @@ static void settings_later_poll(void)                  /* ui_input, every pass *
 static void preset_mark(int on)
 {
     uint32_t k = user_of(TSEL);
-    if (favorite_set(k < UP_SLOTS ? NENGINES : TSEL->eng_req, k < UP_SLOTS ? k : TSEL->preset, on)) {
+    if (favorite_set(k < UP_SLOTS ? FAV_USER : TSEL->eng_req, k < UP_SLOTS ? k : TSEL->preset, on)) {
         ui.force = 1;
         settings_later();
     }

@@ -208,6 +208,8 @@ static void con_status(void)
     con_kv("cpu2_blocks", (int32_t)c1_blocks);          /* blocks it took parts of (fx.c mix_block) */
     con_kv("cpu2_wait_max_us", (int32_t)(fm1_c1_wait_max / 24u));
     con_kv("cpu2_stack", (int32_t)fm1_cpu1_stack_used());
+    con_kv("opn2_c1_blocks", (int32_t)op2_c1_blocks);   /* ShinTech: blocks it rendered OPN2 channels 4..6 of */
+    con_kv("opn2_c1_failed", op2_c1_failed);            /* 1: it stopped answering during one (eng_opn2.c) */
 #endif
     con_kv("voices_given_up", (int32_t)voice_kills);
     con_kv("track", (int32_t)song.sel + 1);

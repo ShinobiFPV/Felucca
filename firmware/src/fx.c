@@ -868,8 +868,11 @@ static uint16_t part_cost[NTRK];                        /* the last block's, per
 static const uint16_t ENG_VCOST[NENGINES] = {163, FELUCCA_FM4 ? 181 : 0, 162, 67, 70, 174, 144, 143, 189, 309, 113, 134,
                                              181,
 #if FELUCCA_SLICE
-                                             129
+                                             129,
+#else
+                                             0,
 #endif
+                                             20   /* OPN2: its voices only copy the chip's channels (op2_mix_begin) */
 };
 #endif
 
@@ -1038,6 +1041,7 @@ static void mix_block(int32_t *out, uint32_t n)
         send_c[i] = send_d[i] = send_r[i] = mix_l[i] = mix_r[i] = 0;
     events_block(n);
     perf = perf_begin(n);                               /* the FX hold layer at work (perform.c) */
+    op2_mix_begin();                                    /* ShinTech: the OPN2 chip's block (eng_opn2.c), before the parts */
 #if FELUCCA_CHIPBENCH
     int cb_c1 = cb_begin();                             /* ShinTech: the OPN2 benchmark; 1 = it has the second core */
 #endif

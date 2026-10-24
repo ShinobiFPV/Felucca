@@ -339,12 +339,18 @@ static int clean_is(const track_t *t, uint32_t e, int16_t lvl, int16_t pan)
           t->p[P_ED_SHP] == 0 && t->p[P_M1SRC] == 0 && t->p[P_M1DST] == 0 && t->p[P_M1AMT] == 0 && t->p[P_M3AMT] == 0 &&
           t->p[P_GLIDE] == 0 && t->p[P_VOICE] == V_POLY && t->p[P_SPRD] == 0;
     for (i = 0; i < 8u; i++)
-        ok &= t->p[P_E0 + i] == (e == ENGI_FM6 && i == 7u ? (int16_t)FM6_OWN : en->edit[i].def);
+        ok &= t->p[P_E0 + i] == (e == ENGI_FM6 && i == 7u ? (int16_t)FM6_OWN :
+                                 e == ENGI_OPN2 && i == 7u ? (int16_t)OP2_OWN : en->edit[i].def);   /* (ShinTech: OPN2 too) */
     if (e == ENGI_DRUM)
         ok &= t->p[P_ATK] == en->presets[0].env[0] && t->p[P_SUS] == en->presets[0].env[2] &&
               t->p[P_REL] == en->presets[0].env[3];
     else
         ok &= t->p[P_ATK] == 0 && t->p[P_SUS] == 127 && t->p[P_REL] == CLEAN_REL;
+    if (e == ENGI_OPN2) {                               /* ShinTech: the init patch, the track's own */
+        op2_patch_t v = OP2_INIT;
+        op2_sanitize(&v);
+        ok &= !memcmp(&v, &op2_patch[trk_index(t)], OP2_PATCH_SIZE) && op2_slot[trk_index(t)] == OP2_OWN;
+    }
     if (e == ENGI_FM6) {
         uint8_t v[FP_SIZE + 1u];
         fm6_unpack(FM6_INIT, v);

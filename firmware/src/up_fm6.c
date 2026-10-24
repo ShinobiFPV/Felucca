@@ -83,7 +83,8 @@ static uint32_t upf_tag(const up_rec_t *r)       /* FNV-1a of the record without
     return h;
 }
 
-static int upf_fm6(uint32_t k) { return up_used(k) && up_rec(k)->engine == ENGI_FM6; }
+/* ShinTech: an OPN2 record has its patch here too (eng_opn2.c op2_patch_t in the 128 bytes, then 0s) */
+static int upf_fm6(uint32_t k) { return up_used(k) && (up_rec(k)->engine == ENGI_FM6 || up_rec(k)->engine == ENGI_OPN2); }
 
 /* a 128-byte packed record's 7-bit bytes, 8 to 7 bytes (UPF_PK) and back (the voice bank too, fm6_vbank.c) */
 static void upf_pk_get(const uint8_t *d, uint8_t *pk)
@@ -132,8 +133,14 @@ static void upf_set(uint32_t k, const uint8_t *pk)
         return;
     if (!upf_valid(&upf))
         upf_empty();
-    fm6_unpack(pk, v);
-    fm6_pack(v, c);
+    if (up_rec(k)->engine == ENGI_OPN2) {           /* (an OPN2 patch: its own ranges, op2_sanitize when loaded) */
+        uint32_t i;
+        for (i = 0; i < FM6_PACKED; i++)
+            c[i] = (uint8_t)(pk[i] & 127u);
+    } else {
+        fm6_unpack(pk, v);
+        fm6_pack(v, c);
+    }
     upf_pk_put(c, upf.e[k].pk);
     upf.e[k].tag = upf_tag(up_rec(k));
     upf.used |= 1u << k;
@@ -200,6 +207,17 @@ static void upf_track_load(track_t *t, uint32_t k)
 {
     uint8_t pk[FM6_PACKED], v[FP_SIZE + 1u];
     uint32_t tr = (uint32_t)(t - trk);
+    if (tr < NTRK && t->eng_req == ENGI_OPN2) {     /* ShinTech: an OPN2 record's patch; none: SLOT's factory one */
+        op2_patch_t p;
+        int32_t s = t->p[P_E7];
+        if (upf_get(k, pk))
+            p = s >= 0 && s < (int32_t)OP2_NFACTORY ? OP2_FACTORY[s] : OP2_INIT;
+        else
+            memcpy(&p, pk, OP2_PATCH_SIZE);
+        op2_set_patch(tr, &p);
+        op2_adopt(tr);
+        return;
+    }
     if (tr >= NTRK || t->eng_req != ENGI_FM6)
         return;
     if (upf_get(k, pk)) {
@@ -215,7 +233,12 @@ static void upf_track_load(track_t *t, uint32_t k)
 static int upf_store(uint32_t k, uint32_t tr)
 {
     uint8_t pk[FM6_PACKED];
-    fm6_pack(fm6_patch[tr % NTRK], pk);
+    if (trk[tr % NTRK].eng_req == ENGI_OPN2) {      /* ShinTech: the track's OPN2 patch */
+        memset(pk, 0, sizeof pk);
+        memcpy(pk, &op2_patch[tr % NTRK], OP2_PATCH_SIZE);
+    } else {
+        fm6_pack(fm6_patch[tr % NTRK], pk);
+    }
     upf_set(k, pk);
     return upf_save();
 }

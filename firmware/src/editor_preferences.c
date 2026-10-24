@@ -100,12 +100,13 @@ static int ed_ui_handle(uint32_t cmd, const uint8_t *a, uint32_t n)
         return 1;
     case ED_FAV_GET:
 #ifdef FELUCCA_FAVORITES
-        if (n == 4u && a[0] <= NENGINES) {
+        if (n == 4u && a[0] <= NENGINES) {           /* (NENGINES, as INFO says it: the user presets) */
             int32_t start = ed_rv(a + 1);
             uint32_t limit = a[0] == NENGINES ? UP_SLOTS : ENGINES[a[0]]->npresets;
             if (start >= 0 && a[3] && a[3] <= 32u && (uint32_t)start + a[3] <= limit) {
                 ed_b(0); ed_b(a[0]); ed_v(start); ed_b(a[3]);
-                for (uint32_t i = 0; i < a[3]; i++) ed_b(favorite_has(a[0], (uint32_t)start + i));
+                for (uint32_t i = 0; i < a[3]; i++)
+                    ed_b(favorite_has(a[0] == NENGINES ? FAV_USER : a[0], (uint32_t)start + i));
                 return 1;
             }
         }
@@ -121,7 +122,7 @@ static int ed_ui_handle(uint32_t cmd, const uint8_t *a, uint32_t n)
             uint32_t limit = a[0] == NENGINES ? UP_SLOTS : ENGINES[a[0]]->npresets;
             if (preset >= 0 && (uint32_t)preset < limit &&
                 (a[0] != NENGINES || !a[3] || up_used((uint32_t)preset))) {
-                favorite_set(a[0], (uint32_t)preset, a[3]);
+                favorite_set(a[0] == NENGINES ? FAV_USER : a[0], (uint32_t)preset, a[3]);   /* (engines 14 on: none) */
                 ui.force = 1;
                 ed_b(ed_ui_save()); ed_b(a[0]); ed_v(preset); ed_b(a[3]);
                 return 1;

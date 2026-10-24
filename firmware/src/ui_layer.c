@@ -15,7 +15,9 @@
  *   SCL  SET   any key: its note name is ROOT; KNOB 1..4 ROOT SCL CHRD VOIC (LY_SCL: the SCL page's first two,
  *              the CHORD page's two; QNT TRN stay on SCL); the LEDs show the root lit and the scale's notes breathing
  *   EDIT SET   the white keys from F3: the engines in PRESETS order (one key each, the NENG_SHOWN one can pick:
- *              engines.c eng_vis), the next white key INIT (LY_INIT: E5), the next CLEAN INIT (LY_CLEAN: F5, 1.5.5)
+ *              engines.c eng_vis), the next white key INIT (LY_INIT: E5), the next CLEAN INIT (LY_CLEAN: F5, 1.5.5).
+ *              ShinTech: 15 white keys hold 13 engines; with more (the 16BIT ones, last in PRESETS order) the 13th
+ *              key is shared: DRUM first, each press again the next of the engines from it on, round (ly_eng_next)
  *              (the dialog); KNOB 1 ENG, 2 No. (the engine's sounds), 3 FAV. Sound loads as on PRESETS: the steps
  *              stay, SAVE held undoes, the editor gets RELOAD; they apply while playing too. 1.4.1: the black keys
  *              the selected track's engine's quick actions (EQA below: DRUM 1..8 its lanes' MUTE; other engines
@@ -74,7 +76,22 @@ static const page_t *ly_page(uint32_t l) { return l == LAYER_SCL ? &LY_SCL : l =
 #define LY_OPEN 2u                     /* ui.ly_t0: the map opened (no tap any more) */
 #define LY_COMBO 4u                    /* .. by a combo */
 #define LY_DEAD 8u                     /* .. pressed where there is no layer: does nothing */
-#define LY_INIT ((uint32_t)NENG_SHOWN) /* EDIT: the white key of INIT, the one after the engines (13: E5), its map cell */
+/* EDIT: the white key of INIT, the one after the engines (E5), its map cell: 13 engine keys at most (F3 .. D5; INIT E5,
+ * CLEAN INIT F5, the last white key). ShinTech: more engines than keys share the last engine key (ly_eng_next) */
+#define LY_INIT ((uint32_t)(NENG_SHOWN < 13 ? NENG_SHOWN : 13))
+/* engine key p (< LY_INIT): the engine it shows (the shared last key: the selected one when it is of its group) and
+ * the one a press loads (the shared key: its first, then each press the next of its group, round) */
+static int ly_shared(uint32_t p) { return p + 1u == LY_INIT && NENG_SHOWN > LY_INIT; }
+static uint32_t ly_eng_key(uint32_t p)
+{
+    uint32_t r = eng_rank(TSEL->eng_req % NENGINES);
+    return eng_vis(ly_shared(p) && r >= p ? r : p);
+}
+static uint32_t ly_eng_next(uint32_t p)
+{
+    uint32_t r = eng_rank(TSEL->eng_req % NENGINES);
+    return eng_vis(ly_shared(p) && r >= p ? p + (r - p + 1u) % (NENG_SHOWN - p) : p);
+}
 #define LY_CLEAN (LY_INIT + 1u)         /* .. and CLEAN INIT's, the next (1.5.5, #190: F5) */
 typedef char ly_init_fits[LY_CLEAN < 16u ? 1 : -1];   /* (a white key: F3 .. G5) */
 #define layer_seen (favorites.factory[15][31])   /* bit l: layer l opened once (a byte no engine uses) */
@@ -654,7 +671,7 @@ static void layer_key(uint32_t l, uint32_t k)
         TSEL->p[P_ROOT] = (int16_t)((k + 5u) % 12u);    /* the key's note name (F3 = F) */
     } else if (l == LAYER_EDIT && !key_black(k)) {
         if (p < NENG_SHOWN && p < LY_INIT)
-            edit_load(eng_vis(p), 0);
+            edit_load(ly_eng_next(p), 0);
         else if (p == LY_INIT && chain_busy())
             ui_message("STOP TO EDIT");
         else if (p == LY_INIT)
@@ -854,7 +871,7 @@ static uint32_t layer_leds(uint32_t *br)
             on = e == 0u;
             can = (mask >> e) & 1u;
         } else if (l == LAYER_EDIT && !b) {             /* the engine lit, the others and INIT breathe */
-            on = p < NENG_SHOWN && p < LY_INIT && eng_vis(p) == TSEL->eng_req % NENGINES;
+            on = p < NENG_SHOWN && p < LY_INIT && ly_eng_key(p) == TSEL->eng_req % NENGINES;
             can = p < NENG_SHOWN && p < LY_INIT ? 1u : (p == LY_INIT || p == LY_CLEAN) && !chain_busy();
         } else if (l == LAYER_EDIT && (a = eqa_of(TSEL, p)) != 0) {   /* the quick actions: on lit (DRUM: sounding), */
             on = a->on(TSEL, a->arg) != 0u;             /* a HOLD one off breathes, none dark */
@@ -1054,10 +1071,10 @@ static void layer_edit(void)                            /* the engines from F3, 
     uint32_t na = eqa_count(TSEL);
     for (i = 0; i < cells; i++) {
         int32_t x = LC_X(i % 4u), y = 4 + (int32_t)(h + 4u) * (int32_t)(i / 4u);
-        const engine_t *en = ENGINES[eng_vis(i) % NENGINES];
+        const engine_t *en = ENGINES[ly_eng_key(i) % NENGINES];   /* (the shared key: the selected engine of its group) */
         if (i < n)
             lcell(x, y, (int32_t)h, 0, engine_icon(en->name), 0, h > 24u ? en->name : eng_abbr(en->name),
-                  eng_vis(i) == TSEL->eng_req % NENGINES ? LS_SEL : LS_OFF, 0);
+                  ly_eng_key(i) == TSEL->eng_req % NENGINES ? LS_SEL : LS_OFF, 0);
         else
             lcell(x, y, (int32_t)h, 0, i == n ? ICON_X_WARN : ICON_COUNT, 0, i == n ? "INIT" : "CLEAN",   /* (CLEAN: no
                                                                                     * icon, the word fills the cell) */

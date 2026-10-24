@@ -95,6 +95,12 @@
  * Built on the Mac too (tests/project_test.c, -DPROJ_HOST): the part above the #ifndef
  * PROJ_HOST needs core.h, params.c (TP) and engines.c. */
 #define PROJ_MAGIC 0x46554E41u                 /* "FUNA" (FUN10): 104 (1.5: 111) parameters, 128 motion records, nudges */
+/* ShinTech: "FUNB" (FUN11) = FUN10 laid out the same, written when a track plays an engine Felucca 1.6 does not have
+ * (engine 14 on: OPN2 ..); that track's 128 bytes at PROJ_FM6_OFF hold its engine's patch (OPN2: eng_opn2.c
+ * op2_patch_t, 96 bytes, then 0s) instead of an FM6 one. A project without such a track is still written FUN10, byte
+ * for byte as Felucca 1.6 writes it. Firmware without these engines knows no FUNB: the slot shows EMPTY there (a FUN10
+ * with engine 14 would be refused as well: proj_engines_ok), so it never misreads one */
+#define PROJ_MAGIC_V11 0x46554E42u
 #define PROJ_MAGIC_V9 0x46554E39u              /* "FUN9": FUN8, 64 bytes longer (the DRUM lane levels, 99 parameters) */
 #define PROJ_MAGIC_V8 0x46554E38u              /* "FUN8": FUN7 + the tracks' FM6 patches */
 #define PROJ_MAGIC_V7 0x46554E37u              /* "FUN7": serialized (byte params, packed steps), chain, motion */
@@ -507,7 +513,7 @@ static int proj_import(project_t *q, const void *b, int n)
 }
 static int proj_import_any(project_t *q, const void *b, int n)
 {
-    if (n == PROJ_STORE_SIZE && ((const uint32_t *)b)[0] == PROJ_MAGIC)
+    if (n == PROJ_STORE_SIZE && (((const uint32_t *)b)[0] == PROJ_MAGIC || ((const uint32_t *)b)[0] == PROJ_MAGIC_V11))
         return proj_unpack(q, b, PROJ_STORE_SIZE);
     if (n == PROJ_STORE_SIZE && ((const uint32_t *)b)[1] >= 8u && ((const uint32_t *)b)[1] < PROJ_STORE_SIZE)
         n = (int)((const uint32_t *)b)[1];      /* a retained slot holding an older, shorter record: its own size
@@ -621,6 +627,9 @@ static int proj_pack(project_store_t *out, const project_t *q)
 {
     uint8_t *b = out->raw; uint32_t pos = 68u, t, i; uint32_t magic = PROJ_MAGIC, size = PROJ_STORE_SIZE, sum;
     for (t = 0; t < NTRK; t++)
+        if (q->t[t].engine >= NENG_V16)
+            magic = PROJ_MAGIC_V11;                     /* ShinTech: a track of a 16BIT engine (see PROJ_MAGIC_V11) */
+    for (t = 0; t < NTRK; t++)
         for (i = 0; i < FM6_PACKED; i++)
             if (q->fm6[t][i] > 127u) return 0;
     if (!chain_valid(&q->chain) || !motion_valid(&q->motion) || P_COUNT > 127u) return 0;
@@ -704,7 +713,8 @@ static int proj_unpack(project_t *q, const uint8_t *b, uint32_t st)
     uint32_t name_off = st - 4u - PROJ_NAME_LEN, end = v7 ? name_off : name_off - NTRK * FM6_PACKED;
     uint32_t mot = v10 ? sizeof q->motion : PROJ_MOTION_V9, chn = v10 ? sizeof q->chain : sizeof(chain_v9_t);
     memcpy(&magic, b, 4); memcpy(&size, b + 4, 4); memcpy(&sum, b + st - 4u, 4);
-    if (magic != (v7 ? PROJ_MAGIC_V7 : st == PROJ_STORE_V8 ? PROJ_MAGIC_V8 : st == PROJ_STORE_V9 ? PROJ_MAGIC_V9 : PROJ_MAGIC) ||
+    if ((magic != (v7 ? PROJ_MAGIC_V7 : st == PROJ_STORE_V8 ? PROJ_MAGIC_V8 : st == PROJ_STORE_V9 ? PROJ_MAGIC_V9 : PROJ_MAGIC) &&
+         !(v10 && magic == PROJ_MAGIC_V11)) ||
         size != st || sum != proj_hash(b, st - 4u) ||
         np < 8u || np > P_COUNT || 68u + NTRK * (np + 2u + NSTEP * 9u) + chn + mot > end)
         return 0;
@@ -873,7 +883,10 @@ static void project_capture(project_t *p)
         p->t[i].engine = trk[i].eng_req;
         p->t[i].preset = trk[i].preset;
         memcpy(p->t[i].step, trk[i].step, sizeof trk[i].step);
-        fm6_pack(fm6_patch[i], p->fm6[i]);
+        if (trk[i].eng_req == ENGI_OPN2)                /* ShinTech: an OPN2 track keeps its OPN2 patch here (FUN11) */
+            memcpy(p->fm6[i], &op2_patch[i], OP2_PATCH_SIZE);
+        else
+            fm6_pack(fm6_patch[i], p->fm6[i]);
     }
     p->motion = motion;
     memcpy(p->mch, song.mch, sizeof p->mch);
@@ -1091,7 +1104,12 @@ static int project_restore_runtime(const project_t *input)
         t->preset = (uint8_t)(ENGINES[e]->npresets ? (s->preset >= PROJ_DEF_KEEP ? 0u : s->preset) % ENGINES[e]->npresets : 0u);
         memcpy(t->step, s->step, sizeof t->step);
         proj_steps(t->step);
-        {   /* the project's own FM6 patch, never reloaded from SLOT: F n if it is that factory patch, else OWN */
+        if (e == ENGI_OPN2) {                           /* ShinTech (FUN11): the track's own OPN2 patch, as FM6's below */
+            op2_patch_t v;
+            memcpy(&v, p->fm6[k], OP2_PATCH_SIZE);
+            op2_set_patch(k, &v);
+            op2_adopt(k);
+        } else {   /* the project's own FM6 patch, never reloaded from SLOT: F n if it is that factory patch, else OWN */
             uint8_t v[FP_SIZE + 1u];
             fm6_unpack(p->fm6[k], v);
             fm6_set_patch(k, v);

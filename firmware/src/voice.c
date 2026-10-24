@@ -122,11 +122,15 @@ static uint32_t trk_vmode(const track_t *t)
 }
 
 /* ------------------------------------------------- the shared voice budget --- */
+/* ShinTech: an engine of an emulated chip (OPN2) has the chip's own voices (its channels, its CHIP LIMIT: eng_opn2.c):
+ * its parts' voices are not in the shared budget, are never taken for another part, and never wait for room */
+static int eng_chip(uint32_t e) { return e == ENGI_OPN2; }
 static uint32_t voices_busy(void)                       /* sounding voices of all parts (not the fading ones) */
 {
     uint32_t p, i, n = 0;
     for (p = 0; p < NPART; p++)
-        for (i = 0; i < NVOICE; i++)
+        if (!eng_chip(trk[p].engine))
+            for (i = 0; i < NVOICE; i++)
             n += trk[p].v[i].active && trk[p].v[i].stage != 4u;
     return n;
 }
@@ -150,7 +154,7 @@ static uint32_t voice_victim(const track_t *self, int soft, track_t **pp)
         track_t *t = &trk[p];
         uint32_t mode = trk_vmode(t);
         uint32_t low = mode == V_POLY ? lowest_held(t) : NVOICE;
-        if (soft && t == self)
+        if ((soft && t == self) || eng_chip(t->engine))
             continue;
         for (i = 0; i < NVOICE; i++) {
             const voice_t *v = &t->v[i];
@@ -188,7 +192,7 @@ static int voice_room(track_t *t, int soft)
 {
     track_t *vp = 0;
     uint32_t k;
-    if (voices_busy() < NVOICE)
+    if (eng_chip(t->engine) || voices_busy() < NVOICE)
         return 1;
     k = voice_victim(t, soft, &vp);
     if (k == NVOICE)
@@ -227,7 +231,7 @@ static voice_t *voice_alloc(track_t *t, uint32_t note)
             return voice_reuse(t, &t->v[i]);
         nfree += !t->v[i].active;
     }
-    if (nfree && voices_busy() >= NVOICE) {
+    if (nfree && !eng_chip(t->engine) && voices_busy() >= NVOICE) {
         track_t *vp = 0;
         uint32_t k = voice_victim(t, 0, &vp);
         if (k < np && vp == t)

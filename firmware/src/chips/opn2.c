@@ -25,6 +25,8 @@
  *
  * Every function is static: Felucca builds as one translation unit (felucca.c); the host tests include this file.
  * OPN2_POOL places the shared tables (the firmware: its .pool section), OPN2_FAST the per-sample code. */
+#ifndef OPN2_C_INCLUDED                /* (the engine and the benchmark both include it) */
+#define OPN2_C_INCLUDED
 #include <stdint.h>
 #ifndef OPN2_POOL
 #define OPN2_POOL
@@ -812,3 +814,4 @@ static void opn2_generate(opn2_t *c, int32_t *lr)   /* one sample */
 {
     OPN2_FAR(opn2_generate_n)(c, (int32_t (*)[2])lr, 1);
 }
+#endif /* OPN2_C_INCLUDED */

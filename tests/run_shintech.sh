@@ -25,6 +25,16 @@ else
     echo "skip (set YMFM to a ymfm checkout: git clone https://github.com/aaronsgiles/ymfm)"
 fi
 
+echo "== the OPN2 engine (firmware/src/eng_opn2.c): frequency, registers, sound, CHIP LIMIT, voices, velocity, Legacy"
+[ -f build/gen/felucca_tables.h ] || { echo "run ./build.sh once first (build/gen)"; exit 1; }
+mkdir -p build/shintech/opn2_demo
+$CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/opn2_engine_test" tests/opn2_engine_test.c -lm
+"$OUT/opn2_engine_test" build/shintech/opn2_demo
+
+echo "== OPN2 patches in projects (FUN11) and user presets (version 6)"
+$CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/opn2_persist_test" tests/opn2_persist_test.c -lm
+"$OUT/opn2_persist_test"
+
 echo "== the two OPN2 cores' cost on this host (Phase 1; the device figures come from FELUCCA_CHIPBENCH=1)"
 $CC tests/chipbench_host.c -o "$OUT/chipbench"
 "$OUT/chipbench"

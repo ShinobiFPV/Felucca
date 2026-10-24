@@ -1376,7 +1376,7 @@ static void graph_browse(void)
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row text centred up/down");
             cv_text_r(206, y + LIST_TY, &AF_M, pt, T_INK, T_THEME);
         }
-        if (favorite_has(e, k)) {
+        if (favorite_has(e == NENGINES ? FAV_USER : e, k)) {   /* (NENGINES: a user preset) */
             GFX_HOOK_ALIGN(0, y, 0, y + 16, AL_V, "list row star centred up/down");
             cv_icon_in(214, y, 0, 16, 12, ICON_X_STAR, sel ? T_INK : T_ACCENT, sel ? T_THEME : T_SURF);
         }

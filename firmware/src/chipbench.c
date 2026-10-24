@@ -27,9 +27,7 @@
  * Figures: est_permille = the core alone at full duty, in 1/1000 of a CPU core (its ticks per native sample against a
  * native sample's time); cpu_pct = the first core's whole ISR as measured now (MENU > SYSTEM > INFO). */
 #if FELUCCA_CHIPBENCH
-#define OPN2_POOL                 /* (the tables in RAM, .bss: its loads are ~25 % quicker than the pool's, bench cal) */
-#define OPN2_FAST __attribute__((section(".fast_text")))
-#include "chips/opn2.c"
+#include "chips/opn2.c"                 /* (already in: eng_opn2.c, with its placement of the tables and the code) */
 #include "chips/ym3438.c"
 #include "chipbench_script.h"
 

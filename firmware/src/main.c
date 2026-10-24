@@ -108,6 +108,7 @@ static void felucca_init(void)
         song.g[i] = GP[i].def;
     undo_depth++;                             /* (no undo copy of the power-on loads) */
     fm6_init();                               /* every track's FM6 patch: the init voice */
+    op2_init();                               /* ShinTech: every track's OPN2 patch: the init patch */
     for (i = 0; i < NTRK; i++) {
         track_t *t = &trk[i];
         track_defaults(t);

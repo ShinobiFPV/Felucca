@@ -35,6 +35,8 @@ static const char *const PRESET_CAT[16] = {
     "FFFF",                      /* 11 NOISE: WIND, RAIN, ARCADE, METAL */
     "KUBLPUKU",                  /* 12 FM6: TINE EP, BELL, FM BASS, BRASS, PAD, MARIMBA, ORGAN, PLUCK */
     "DD",                        /* 13 SLICE: CHOP, STUTTER */
+    "BBBBBBLLLLLLKKKKKPPPPUUUUFFFFDDD",   /* 14 OPN2 (ShinTech 16BIT): the basses, leads, keys, pads, plucks, FX and
+                                  * drums of opn2_factory.h, in that order */
 };
 static uint32_t preset_cat(uint32_t e, uint32_t k)    /* factory preset k of engine e */
 {
