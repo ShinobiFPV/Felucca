@@ -616,12 +616,14 @@ static void font_scene(const char *mode, const char *name)
     }
 }
 /* GREY: every pixel RGB565 gray (R = B, G = 2 R); MONO (black and white, its edges blended per channel): neutral
- * (R = B, G within 2 of 2 R, the 5-6-5 rounding). Other palettes: nothing */
+ * (R = B, G within 2 of 2 R, the 5-6-5 rounding). Other palettes: nothing. ShinTech: not the splash, the Genesynth
+ * image, in its own colours in every palette (S_SPLASH checks it pixel for pixel) */
 static uint32_t mono_bad;
+static uint8_t mono_skip;                        /* (the scene being checked is the splash) */
 static void mono_check(void)
 {
     uint32_t i, bw = settings.palette == UI_BW_INDEX;
-    if (settings.palette != UI_GREY_INDEX && !bw) return;
+    if ((settings.palette != UI_GREY_INDEX && !bw) || mono_skip) return;
     for (i = 0; i < 240u * 240u; i++) {
         uint16_t c = swap16(host_screen[i]);
         int32_t d = (int32_t)((c >> 5) & 63u) - (int32_t)(c >> 11) * 2;
@@ -1631,6 +1633,7 @@ static void setup(int s)
 }
 static void draw(int s)
 {
+    mono_skip = s == S_SPLASH;
     nscr = npend = nrules = 0;
     ntight = 0;
     tight[0] = 0;
@@ -1640,44 +1643,48 @@ static void draw(int s)
         setup_show("TURN RIGHT", "ALGORITHM");
         return;
     }
-    if (s == S_SPLASH) {                          /* the power-on splash (main.c, before the UI): its lines, the version
-                                                   * shown FELUCCA_VERSION (run_tests.sh: src/felucca.c's) */
-        static const char WANT[] = "Felucca|" FELUCCA_VERSION "|H\xFCgelton Instruments|with community";
+    if (s == S_SPLASH) {                          /* the power-on splash (main.c, before the UI). ShinTech: the Genesynth
+                                                   * image (genesynth_splash.h) and the version FELUCCA_VERSION on it
+                                                   * (run_tests.sh: src/felucca.c's) */
         splash_seen[0] = 0;
         in_splash = 1;
         draw_splash();
         in_splash = 0;
-        {   /* the square whole on the screen (176 x 176 at 32,32, more than the canvas): its edges and square corners
-             * RAISE, BG just outside; its text's ink 16 px in from the left and the top (the bottom: AL_B, the hook) */
-            const int32_t q0 = 32, q1 = 32 + 176 - 1;
-            uint16_t bg = host_screen[0], ra = host_screen[(uint32_t)(q0 + 1) * 240u + (uint32_t)q0 + 1];
-            int32_t i, x, y, ix = 999, iy = 999, bad = ra == bg;
-            for (i = q0 - 1; i <= q1 + 1; i++) {
-                int32_t in = i >= q0 && i <= q1;
-                bad |= host_screen[(uint32_t)(q0 - 1) * 240u + (uint32_t)i] != bg || host_screen[(uint32_t)(q1 + 1) * 240u + (uint32_t)i] != bg
-                    || host_screen[(uint32_t)i * 240u + (uint32_t)(q0 - 1)] != bg || host_screen[(uint32_t)i * 240u + (uint32_t)(q1 + 1)] != bg;
-                if (in)
-                    bad |= host_screen[(uint32_t)q0 * 240u + (uint32_t)i] != ra || host_screen[(uint32_t)q1 * 240u + (uint32_t)i] != ra
-                        || host_screen[(uint32_t)i * 240u + (uint32_t)q0] != ra || host_screen[(uint32_t)i * 240u + (uint32_t)q1] != ra;
+        {   /* the image: its runs make exactly 240 rows of 240 px over its palette, and the screen shows it, but for
+             * the version's line (AF_S, top right on the image's black) */
+            static uint16_t img[240 * 240];
+            uint32_t pos = 0, p = 0, bad = 0, off = 0, k;
+            int32_t vy1 = 6 + AF_S.h, vx0 = 240 - 6 - text_w(&AF_S, FELUCCA_VERSION);
+            while (pos < GS_RLE_LEN && !bad) {
+                uint32_t b = GS_RLE[pos++], n, i;
+                if (b < 0xC0u)
+                    n = (b >> 6) + 1u, i = b & 63u;
+                else
+                    n = (b & 63u) + 4u, i = pos < GS_RLE_LEN ? GS_RLE[pos++] : 999u;
+                bad |= i >= GS_NPAL || p % 240u + n > 240u || p + n > 240u * 240u;   /* (a run never crosses a row) */
+                for (k = 0; k < n && !bad; k++)
+                    img[p++] = GS_PAL[i];
             }
-            for (y = q0; y <= q1; y++)
-                for (x = q0; x <= q1; x++)
-                    if (host_screen[(uint32_t)y * 240u + (uint32_t)x] != ra) {
-                        if (x - q0 < ix) ix = x - q0;
-                        if (y - q0 < iy) iy = y - q0;
-                    }
-            if (bad || ix != 16 || iy != 16) {
-                if (rep) fprintf(rep, "FIND %-26s the splash square not whole (edges %s) or its text not 16 px in (left %d, top %d)\n",
-                                 cur_name, bad ? "off" : "ok", (int)ix, (int)iy);
+            bad |= p != 240u * 240u;
+            for (k = 0; k < 240u * 240u && !bad; k++) {
+                int32_t x = (int32_t)(k % 240u), y = (int32_t)(k / 240u);
+                if (y < vy1 && x >= vx0 - 1)
+                    bad |= img[k] != 0x0000u;     /* (the version's box: the image is black there) */
+                else
+                    off += swap16(host_screen[k]) != img[k];
+            }
+            if (bad || off) {
+                if (rep) fprintf(rep, "FIND %-26s the splash image %s, %u px off it on the screen\n", cur_name,
+                                 bad ? "does not decode to 240 x 240 (or is not black under the version)" : "decodes", (unsigned)off);
                 nfind++;
             }
         }
-        if (strcmp(splash_seen, WANT)) {
-            if (rep) fprintf(rep, "FIND %-26s the splash shows '%s', not '%s'\n", cur_name, splash_seen, WANT);
+        if (strcmp(splash_seen, FELUCCA_VERSION)) {
+            if (rep) fprintf(rep, "FIND %-26s the splash shows '%s', not '%s'\n", cur_name, splash_seen, FELUCCA_VERSION);
             nfind++;
         } else {
             static uint8_t said;
-            if (!said++) printf("ui_render: the splash shows the version " FELUCCA_VERSION " (FELUCCA_VERSION) and its lines\n");
+            if (!said++) printf("ui_render: the splash shows the Genesynth image and the version " FELUCCA_VERSION " (FELUCCA_VERSION)\n");
         }
         return;
     }
