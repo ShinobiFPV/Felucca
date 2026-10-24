@@ -64,3 +64,4 @@ op2_mix_begin 3312
 op2_post 53
 psg_mix_prepare 4128
 psg_mix_render 2702
+pcm8_post 59

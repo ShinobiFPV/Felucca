@@ -106,7 +106,7 @@
   loop, its hits as slices), USR1..USR3 (a user slot sliced by SLICE, its AUTO onsets or MAN slices, one hit per slice
   in GM order on the keys: 36 kick, 38 snare, 42 closed hat, 46 open hat, 39 clap, 45 low tom, 50 high tom, 49 crash,
   37 rim, 51 ride, 56 cowbell, 54 tambourine). A voice is the source engine's own voice, called with PCM8's values in
-  its places; after the part's voices (a new optional `engine_t.post`) the mix goes through the DAC: sampled and held
+  its places; after the part's voices (voice.c calls `pcm8_post`) the mix goes through the DAC: sampled and held
   at RATE 12 / 24 / 48 kHz, rounded to BITS 8 or 4, the ladder step away from zero (LADR), LGCY CLEAN / EARLY / LATE.
   MODE 3 VOICE or 1 SHOT (one stream). 14 presets. An EDIT panel draws a sine through the DAC as set.
 - **Sample slots: the three user slots that exist** (0xA0000..0xDBFFF, 80 KiB each, ~7 s of 22.05 kHz ADPCM, shared

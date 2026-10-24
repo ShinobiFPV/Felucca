@@ -758,8 +758,9 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
         e->render(t, v, T_SPREAD(t) > v->side ? SPREAD_BUF(t) : out, n, &m);   /* (SPREAD: the left ones) */
         nr++;
     }
-    if (e->post)                                        /* ShinTech: the part's own processing (PCM8's DAC) */
-        e->post(t, out, n);
+    if (t->engine == ENGI_PCM8)                         /* ShinTech: PCM8's voices' mix through its DAC (eng_pcm8.c; here,
+                                                         * not an engine_t hook: Felucca-Engines' header stays as it is) */
+        pcm8_post(t, out, n);
     if (T_SPREAD(t))
         SPREAD_SUM(out, t);                /* out: every voice; spread_buf: the left ones */
     if (fade) {

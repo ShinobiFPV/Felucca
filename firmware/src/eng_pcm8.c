@@ -12,7 +12,7 @@
  *                      4 the open hat 46, 5 the clap 39, 6 the low tom 45, 7 the high tom 50, 8 the crash 49, ..):
  *                      a kit recorded or uploaded as a row of hits plays as a GM kit
  * A voice is the source engine's own voice (its note_on, render and amp, with PCM8's values put in its EDIT places for
- * the call), rendered into the part's mix (engine memory); after the part's voices (engine_t.post) the mix goes
+ * the call), rendered into the part's mix (engine memory); after the part's voices (voice.c calls pcm8_post) the mix goes
  * through the DAC: sampled and held at RATE (12 / 24 / 48 kHz, no interpolation: the grit of a low rate), rounded to
  * BITS (8, or 4 for more crunch), the ladder step at zero (LADR: the console's DAC's crossover), the output's shaping
  * (LGCY, as OPN2's: CLEAN, EARLY ~3.4 kHz two poles, LATE ~9 kHz one).
@@ -193,8 +193,8 @@ static void pcm8_render(track_t *t, voice_t *v, int32_t *out, uint32_t n, const 
         d->mix[i] += b[i];
 }
 
-/* after the voices: the mix through the DAC into out */
-static void pcm8_post(track_t *t, int32_t *out, uint32_t n)
+/* after the part's voices (voice.c track_render): the mix through the DAC into out */
+__attribute__((noinline)) static void pcm8_post(track_t *t, int32_t *out, uint32_t n)   /* (out of line: its own budget) */
 {
     static const uint32_t RATE_Q16[3] = {(12000u << 16) / FS, (24000u << 16) / FS, (48000u << 16) / FS};
     pcm8_dac_t *d = pcm8_dac(t);
@@ -283,7 +283,6 @@ static const engine_t ENG_PCM8 = {
     .render = pcm8_render,
     .amp = pcm8_amp,
     .block = pcm8_block,
-    .post = pcm8_post,
     .keys = pcm8_keys,
     .knob = {P_E0, P_E1, P_E2, P_E5},
     .poly = 3,
