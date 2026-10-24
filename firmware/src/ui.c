@@ -429,8 +429,8 @@ static int page_visible(uint32_t i)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
     if (PAGES[i].id[0] == P_FTYPE)                    /* FILTER (1.5, #104): ANALOG's */
         return ENGINES[TSEL->eng_req % NENGINES] == &ENG_ANALOG;
-    if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)
-        return TSEL->eng_req % NENGINES == ENGI_FM6;
+    if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)   /* (ShinTech: OPN2's operators too, ui_opn2op.c) */
+        return TSEL->eng_req % NENGINES == ENGI_FM6 || TSEL->eng_req % NENGINES == ENGI_OPN2;
 #if FELUCCA_SLICE
     if (PAGES[i].graph == GR_SLICES)
         return ENGINES[TSEL->eng_req % NENGINES] == &ENG_SLICE;
@@ -868,6 +868,8 @@ static struct {
     uint8_t eng, preset, user, patn;
     uint8_t fm6_slot;            /* the track's FM6 patch and its SLOT (eng_fm6.c): an edited or a project's */
     uint8_t fm6[FP_SIZE + 1u];   /* patch is the track's own, not a factory one */
+    uint8_t op2_slot;            /* ShinTech: the track's OPN2 patch and its SLOT (eng_opn2.c), as FM6's */
+    op2_patch_t op2;
     int16_t p[P_COUNT];
     step_t step[NSTEP];
     motion_store_t motion_backup; /* one track only, swaps with the shared event pool on undo */
@@ -995,6 +997,8 @@ static void load_begin(track_t *t, uint32_t what)
     memcpy(undo.step, t->step, sizeof undo.step);
     memcpy(undo.fm6, fm6_patch[i], FP_SIZE);
     undo.fm6_slot = fm6_slot[i];
+    undo.op2 = op2_patch[i];
+    undo.op2_slot = op2_slot[i];
     undo.pat = pat_sig[i];
     undo.from = pat_from[i];
     undo.from_h = pat_from_h[i];
@@ -1053,6 +1057,8 @@ static void edit_undo_take(track_t *t, uint32_t tag, uint32_t what)
     memcpy(undo.step, t->step, sizeof undo.step);
     memcpy(undo.fm6, fm6_patch[i], FP_SIZE);
     undo.fm6_slot = fm6_slot[i];
+    undo.op2 = op2_patch[i];
+    undo.op2_slot = op2_slot[i];
     undo.pat = pat_sig[i];
     undo.from = pat_from[i];
     undo.from_h = pat_from_h[i];
@@ -1146,6 +1152,15 @@ static void undo_swap(void)
         fm6_own_ok &= (uint8_t)~(1u << tr);
         memcpy(undo.fm6, v, FP_SIZE);
         undo.fm6_slot = sl;
+        {                                         /* ShinTech: OPN2's patch and SLOT, as FM6's */
+            op2_patch_t o = op2_patch[tr];
+            sl = op2_slot[tr];
+            op2_set_patch(tr, &undo.op2);
+            op2_slot[tr] = undo.op2_slot;
+            op2_own_ok &= (uint8_t)~(1u << tr);
+            undo.op2 = o;
+            undo.op2_slot = sl;
+        }
     }
     undo.keep = 0;                                /* the next load copies the track as it is now */
     if (t == TSEL)

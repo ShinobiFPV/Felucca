@@ -507,6 +507,13 @@ static void span_fop(const card_span_t *sp, int32_t v, char *val)       /* FM6's
     uint32_t ic;
     (void)fop_card_at((uint32_t)sp->ctx, v, &l, val, &u, &r, &ic);
 }
+static void span_o2p(const card_span_t *sp, int32_t v, char *val)       /* ShinTech: OPN2's (ui_opn2op.c) */
+{
+    const char *l, *u;
+    int32_t r;
+    uint32_t ic;
+    (void)o2p_card_at((uint32_t)sp->ctx, v, &l, val, &u, &r, &ic);
+}
 static void card_span_by(void (*fn)(const card_span_t *, int32_t, char *), const void *p, int32_t lo, int32_t hi, int32_t ctx)
 {
     card_span.fn = fn;
@@ -1163,6 +1170,13 @@ static void draw_columns(void)
             int32_t r;
             uint32_t ic;
             int on;
+            if (o2p_ok()) {                              /* ShinTech: OPN2's operator (ui_opn2op.c) */
+                on = o2p_card(c, &lb, val, &u, &r, &ic);
+                if (o2p_span(c))
+                    card_span_by(span_o2p, 0, 0, (int32_t)o2p_span(c), (int32_t)c);
+                draw_column(c, lb, val, u, on ? VAL(c) : T_DIM, r, ic);
+                continue;
+            }
             if (!fop_ok()) {                             /* (the engine changed before ui_draw left the page) */
                 draw_column(c, "", "", "", T_THEME, -1, ICON_NONE);
                 continue;

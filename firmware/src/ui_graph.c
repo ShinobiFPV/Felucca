@@ -902,6 +902,8 @@ static void graph_fm6env(const track_t *t, uint16_t c)
     cv_text_r(228, 4 - GOY, &AF_S, b, T_TEXT, T_SURF);
 }
 
+#include "ui_opn2op.c"                               /* ShinTech: OPN2's operator pages, its chart and envelopes */
+
 #if FELUCCA_FM4
 /* DIGITAL's eight algorithms as FM charts, read from src/eng_digital.c's switch (alg) (ui_test.c checks
  * these tables against it). FM_CELL: per operator 1..4 its grid cell, the column in 24 px steps (bits 0..2)
@@ -1238,6 +1240,10 @@ static uint32_t graph_signature(void)
     if ((pg->scope == SC_ENGINE || fop_page(pg->graph)) && t->eng_req % NENGINES == ENGI_FM6)   /* the patch (PAT's algorithm,
                                                      * levels, FB; the operator pages: the operator, the stage) */
         h ^= (fm6_pgen[(t - trk) % NTRK] + 1u) * 2246822519u + (fop_op + 1u) * 40503u + (fop_stg + 1u) * 7919u;
+    if ((pg->scope == SC_ENGINE || fop_page(pg->graph)) && t->eng_req % NENGINES == ENGI_OPN2)   /* ShinTech: OPN2's
+                                                     * patch, the operator, the stage, the knob turned */
+        h ^= (op2_pgen[(t - trk) % NTRK] + 1u) * 2246822519u + (o2p_op + 1u) * 40503u + (o2p_stg + 1u) * 7919u +
+             (ui.hot_t ? ui.hot_col + 1u : 0u) * 65537u;
     if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_SAMPLE) h ^= sample_wave.pos * 13u + sample_wave.key;
     if (pg->graph == GR_ROLL) {
         uint32_t ph = song.playing ? t->seq_idx : 0xFFFFu;
@@ -2338,12 +2344,15 @@ static void draw_graph(void)
         case GR_FMOP:
         case GR_FMOP2:
             if (fop_ok()) graph_fm6(t, c, fop_op % 6u);   /* the chart, the operator picked */
+            else if (o2p_ok()) graph_opn2(t, c, o2p_op & 3u);   /* (OPN2's: ui_opn2op.c) */
             break;
         case GR_FMENV:
             if (fop_ok()) graph_fm6env(t, c);
+            else if (o2p_ok()) graph_opn2env(t, c);
             break;
         default:
-            if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL) graph_wheel(t, c);
+            if (pg->scope == SC_ENGINE && t->eng_req % NENGINES == ENGI_OPN2) graph_opn2(t, c, 4u);   /* EDIT 1 and 2 */
+            else if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL) graph_wheel(t, c);
             else if (pg->scope == SC_ENGINE && ENGINES[t->eng_req % NENGINES] == &ENG_SAMPLE && sample_wave.ready) graph_sample(c);
             else if (pg->scope == SC_ENGINE && t->eng_req % NENGINES == ENGI_FM6) graph_fm6(t, c, 6u);   /* EDIT 1 and 2 */
 #if FELUCCA_FM4

@@ -1034,7 +1034,10 @@ static void edit_param(uint32_t slot, int32_t steps)
         return;
     }
     if (fop_page(pg->graph)) {                           /* FM6's operators: KNOB 1 OP, 2..4 its bytes (ui_fm6op.c) */
-        fop_knob(slot, steps);
+        if (o2p_ok())
+            o2p_knob(slot, steps);                       /* (ShinTech: OPN2's, ui_opn2op.c) */
+        else
+            fop_knob(slot, steps);
         return;
     }
     if (pg->graph == GR_MOD && slot == 0u) {             /* MOD: KNOB 1 the slot, 2..4 its SRC DST AMT */

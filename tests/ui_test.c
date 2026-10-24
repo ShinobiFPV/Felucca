@@ -184,6 +184,7 @@ static void ui_power_on(void)
     ml_off();                                     /* (MIDI LEARN off, nothing learned) */
     memset(&undo, 0, sizeof undo);
     fop_op = fop_stg = 0;                         /* (FM6's operator pages: OP 1, stage 1, as at power-on) */
+    o2p_op = o2p_stg = 0;                         /* (ShinTech: OPN2's, ui_opn2op.c) */
     memset(pat_last, 0, sizeof pat_last);
     memset(pat_from, 0, sizeof pat_from);                /* (the header's slot letter: none) */
     memset(proj_slot, 0, sizeof proj_slot);
