@@ -5058,10 +5058,11 @@ static int test_fm4_retired(void)
     }
     bad += check("PRESETS KNOB 2: the engines in order, DIGITAL skipped, back to the first",
                  seen == all && TSEL->eng_req == 0u && eng_step(0, 1) == ENGI_FM6 && eng_step(ENGI_FM6, 1) == 2u &&
-                 eng_step(ENGI_FM6, -1) == 0u && eng_step(0, -1) == ENGI_OPN2 && eng_step(ENGI_DRUM, 1) == ENGI_OPN2);   /* (ShinTech: OPN2 last) */
+                 eng_step(ENGI_FM6, -1) == 0u && eng_step(0, -1) == ENGI_PSG && eng_step(ENGI_DRUM, 1) == ENGI_OPN2 &&
+                 eng_step(ENGI_OPN2, 1) == ENGI_PSG);   /* (ShinTech: OPN2, PSG last) */
     {   /* the display order (engines.c ENGINE_ORDER): every engine one can pick once; the PRESETS list follows it */
         static const char *const ORDER[] = {"ANALOG", "FM6", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL", "GRAIN",
-                                            "PHYS", "NOISE", "SLICE", "DRUM", "OPN2"};   /* (ShinTech: OPN2 last) */
+                                            "PHYS", "NOISE", "SLICE", "DRUM", "OPN2", "PSG"};   /* (ShinTech: OPN2, PSG last) */
         uint32_t last = 0xFFu, r = 0, n = 0;
         ok = NENG_SHOWN == NELEM(ORDER);
         for (i = 0; ok && i < NENG_SHOWN; i++)

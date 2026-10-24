@@ -124,7 +124,7 @@ static uint32_t trk_vmode(const track_t *t)
 /* ------------------------------------------------- the shared voice budget --- */
 /* ShinTech: an engine of an emulated chip (OPN2) has the chip's own voices (its channels, its CHIP LIMIT: eng_opn2.c):
  * its parts' voices are not in the shared budget, are never taken for another part, and never wait for room */
-static int eng_chip(uint32_t e) { return e == ENGI_OPN2; }
+static int eng_chip(uint32_t e) { return e == ENGI_OPN2 || e == ENGI_PSG; }
 static uint32_t voices_busy(void)                       /* sounding voices of all parts (not the fading ones) */
 {
     uint32_t p, i, n = 0;

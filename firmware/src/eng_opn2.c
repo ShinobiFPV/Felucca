@@ -480,7 +480,12 @@ static uint8_t op2_c1_failed;                   /* the second core stopped answe
 static uint32_t op2_c1_blocks;                  /* blocks the second core rendered channels 4..6 of (console) */
 static uint32_t op2_idle_blocks;                /* blocks the chip was silent and not clocked (console) */
 #if FELUCCA_CPU2
-static void op2_c1_job(uint32_t off) { OPN2_FAR(opn2_channels_n)(&op2_chip, op2_blk, op2_nb, op2_nat + off, 3, 6); }
+static void psg_c1_hook(void);                  /* (eng_psg.c: PSG's block, on the second core with channels 4..6) */
+static void op2_c1_job(uint32_t off)
+{
+    OPN2_FAR(opn2_channels_n)(&op2_chip, op2_blk, op2_nb, op2_nat + off, 3, 6);
+    psg_c1_hook();                              /* (once: it clears its own flag) */
+}
 #endif
 
 /* the chip's nn native samples into op2_nat: channels 1..3 here, 4..6 on the second core when it answers */

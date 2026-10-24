@@ -33,6 +33,11 @@ $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/opn2_engine_test" tests/opn2_engine_t
 $CC -w -DOP2_ONE_CORE_CAP=4 -Ibuild/gen -Ifirmware/src -o "$OUT/opn2_cap_test" tests/opn2_engine_test.c -lm
 "$OUT/opn2_cap_test"
 
+echo "== the PSG engine (firmware/src/eng_psg.c, chips/psg.c): the chip, dividers, LFSRs, shapes, writes, sound, CHIP LIMIT, macros"
+mkdir -p build/shintech/psg_demo
+$CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/psg_engine_test" tests/psg_engine_test.c -lm
+"$OUT/psg_engine_test" build/shintech/psg_demo
+
 echo "== OPN2 patches in projects (FUN11) and user presets (version 6)"
 $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/opn2_persist_test" tests/opn2_persist_test.c -lm
 "$OUT/opn2_persist_test"

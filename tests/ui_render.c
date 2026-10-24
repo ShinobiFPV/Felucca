@@ -775,7 +775,8 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_DETAIL_COND, S_DETAIL_FILL, S_AUTO_COND, S_GLO_FILL, S_SEQ_EUCLID, S_SEQ_EUCLID_DRUM, S_SEQ_EUCLID_64,
        S_MENU_SELECT, S_PROJECT_ERASE, S_CONFIRM_ERASE_PROJ, S_TOOLS_CLEAN, S_CONFIRM_CLEAN,
        S_MENU_MIDI_TRACK, S_MENU_MIDI_TCH_UNUSED, S_MENU_MIDI_AUTO, S_HOME_TRACKS_MIDI, S_MIXER_MIDI, S_EDIT_PHASE_FOLD,
-       S_OPN2_EDIT, S_OPN2_ALG5, S_OPN2_OP, S_OPN2_OP2, S_OPN2_OP_ENV, S_OPN2_OP_ENV_REL, S_COUNT };
+       S_OPN2_EDIT, S_OPN2_ALG5, S_OPN2_OP, S_OPN2_OP2, S_OPN2_OP_ENV, S_OPN2_OP_ENV_REL,
+       S_PSG_WAVE, S_PSG_WAVE_EXT, S_PSG_NOISE, S_PSG_MACROS, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
     "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "arp",
@@ -807,7 +808,8 @@ static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "mes
     "layer_seq_euclid_64",
     "menu_select", "project_erase", "confirm_erase_project", "tools_clean", "confirm_clean",
     "menu_midi_track", "menu_midi_channels_unused", "menu_midi_auto_select", "home_tracks_midi", "mixer_midi", "edit_phase_fold",
-    "opn2_edit", "opn2_alg_5", "opn2_op", "opn2_op2", "opn2_op_env", "opn2_op_env_rel"};
+    "opn2_edit", "opn2_alg_5", "opn2_op", "opn2_op2", "opn2_op_env", "opn2_op_env_rel",
+    "psg_wave", "psg_wave_ext", "psg_noise", "psg_macros"};
 
 /* the STEP page's piano roll (ui_graph.c graph_roll) on track 1, stopped unless said: an empty pattern; ACID in
  * A minor; POLY chords (Am7 F C G, tied); a line with ties, slides and accents in C major; LEN 32 on its second
@@ -1245,6 +1247,15 @@ static void setup(int s)
     case S_OPN2_OP_ENV: eng(ENGI_OPN2); TSEL->p[P_E7] = 6; op2_poll(); o2p_op = 3; o2p_stg = 1; go_title("OP ENV"); ui.hot_col = 2;
         ui.hot_t = 30; break;
     case S_OPN2_OP_ENV_REL: eng(ENGI_OPN2); TSEL->p[P_E7] = 6; op2_poll(); o2p_op = 0; o2p_stg = 3; go_title("OP ENV"); break;
+    /* ShinTech: PSG's panels (ui_psg.c): EDIT 1 on SQUARE (AUTHENTIC), on SAW with WAVE just turned (EXTENDED, WAVE+),
+     * on WHITE (the shift register's bits); EDIT 2 with ARP MAJ, VIB 8, SWP +6 and DRV 3 (SWP just turned) */
+    case S_PSG_WAVE: eng(ENGI_PSG); TSEL->p[P_E0] = 0; go_title("EDIT 1"); break;
+    case S_PSG_WAVE_EXT: eng(ENGI_PSG); TSEL->p[P_E0] = 4; go_title("EDIT 1"); ui.hot_col = 0; ui.hot_t = 30; break;
+    case S_PSG_NOISE: eng(ENGI_PSG); TSEL->p[P_E0] = 7; TSEL->p[P_E1] = 1; go_title("EDIT 1"); break;
+    case S_PSG_MACROS:
+        eng(ENGI_PSG); TSEL->p[P_E2] = 3; TSEL->p[P_E3] = 2; TSEL->p[P_E5] = 8; TSEL->p[P_E6] = 6;
+        go_title("EDIT 2"); ui.hot_col = 2; ui.hot_t = 30;
+        break;
     case S_ALG1: case S_ALG2: case S_ALG3: case S_ALG4: case S_ALG5: case S_ALG6: case S_ALG7: case S_ALG8:
         eng(1); TSEL->p[P_E0] = (int16_t)(s - S_ALG1);      /* the 8 DIGITAL charts; FB on the odd ones, IDX high .. 0 */
         TSEL->p[P_E6] = (s - S_ALG1) & 1 ? 40 : 0; TSEL->p[P_E4] = (int16_t)((S_ALG8 - s) * 18);

@@ -238,6 +238,33 @@ int main(void)
     pcheck("cleared again; a preset number past 127 refused", ok);
 
     opn2_ops();
+
+    /* 7. PSG (engine 15): a project with a PSG track (and none of OPN2) is FUNB and loads back; a user preset of it a
+     *    version 6 record; its favourites in row 2's unused upper half */
+    ui_power_on();
+    set_engine_of(&trk[2], ENGI_PSG);
+    apply_preset_to(&trk[2], 8);                  /* MAJOR ARP */
+    trk[2].p[P_E6] = -12;                         /* (an edit) */
+    project_capture(&a);
+    ok = proj_pack(&st, &a);
+    memcpy(&magic, st.raw, 4);
+    ok &= magic == 0x46554E42u && proj_import(&b, &st, sizeof st) && !memcmp(&a, &b, sizeof a);
+    trk[2].p[P_E6] = 0;
+    project_restore_runtime(&b);
+    pcheck("PSG: a project with a PSG track packs as FUNB and comes back (T3 PSG, its SWP -12)",
+           ok && trk[2].eng_req == ENGI_PSG && trk[2].p[P_E6] == -12);
+    ui_power_on();
+    song.sel = 2;
+    set_engine(ENGI_PSG);
+    up_store(7, "PSGARP");
+    pcheck("PSG: a user preset of it: a version 6 record, engine 15", up_used(7) && up_rec(7)->ver == UP_VER_16BIT &&
+           up_rec(7)->engine == ENGI_PSG);
+    memset(&favorites, 0, sizeof favorites);
+    favorite_set(2, 1, 1);                        /* PHASE preset 2 */
+    ok = favorite_set(ENGI_PSG, 25, 1) && favorite_has(ENGI_PSG, 25) && !favorite_has(ENGI_OPN2, 25) &&
+         favorite_has(2, 1) && favorites.factory[2][16 + 25 / 8] == 1u << (25 % 8);
+    pcheck("PSG: a favourite in PHASE's row's unused upper half, PHASE's and OPN2's own untouched", ok);
+
     printf("opn2_persist_test: %s\n", pbad ? "FAILED" : "all checks ok");
     return pbad != 0;
 }
