@@ -89,7 +89,12 @@ The 16BIT groovebox fork of Felucca (OPN2, PSG and PCM8 engines). Based on upstr
   upstream; both load. **A FUNB project does not open on upstream Felucca.** User presets of an OPN2 sound are
   version 6 records. Favourites of engines >= 14 live in the unused upper halves of favourites rows 0 / 2 / 3.
 - `op2_mix_begin` / `op2_post` are kept out of the audio ISR (their own target budgets, `tests/target_budget.txt`).
-- Console `status`: `opn2_c1_blocks`, `opn2_c1_failed`.
+- The chip is not clocked while it is silent (no note, every operator released to full attenuation, no write
+  pending): an OPN2 track that plays nothing costs nothing. A note after such a pause differs from one on a chip
+  clocked meanwhile only by the envelope counter's phase at its key on (as on the chip, where it runs free).
+- Without the second core (2ND CORE OFF, or it gave up) notes take channels 1..4 only (`OP2_ONE_CORE_CAP`); the
+  notes on 5 and 6 end when it gives up mid-play.
+- Console `status`: `opn2_c1_blocks`, `opn2_c1_failed`, `opn2_idle_blocks`.
 
 #### Device test (FM-1, 2ND CORE ON, HALL reverb; `tools/shintech/fm1midi.py` + console `status`)
 
@@ -103,3 +108,7 @@ The 16BIT groovebox fork of Felucca (OPN2, PSG and PCM8 engines). Based on upstr
 | released (tails) | 54-57 % | - |
 
 No late blocks, no reboot, the second core took every block (`opn2_c1_blocks` +1,378/s, `opn2_c1_failed` 0).
+
+With the chip unclocked while silent (same test): OPN2 tracks with no notes 14 % (46-54 % before: the chip ran
+whenever a track was OPN2), 1 note 35 %, 6 notes 64 % with the longest half 2,082 us (72 %); idle again within 9 s
+of the PAD's release.
