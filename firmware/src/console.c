@@ -212,6 +212,13 @@ static void con_status(void)
     con_kv("opn2_c1_failed", op2_c1_failed);            /* 1: it stopped answering during one (eng_opn2.c) */
 #endif
     con_kv("opn2_idle_blocks", (int32_t)op2_idle_blocks);   /* ShinTech: blocks the OPN2 chip was silent, unclocked */
+    {
+        uint32_t ch, nb = 0;
+        for (ch = 0; ch < OPN2_CHANNELS; ch++)
+            nb += op2_ch[ch].busy;
+        con_kv("opn2_busy", (int32_t)nb);              /* its channels sounding a note now */
+        con_kv("opn2_nchan", (int32_t)op2_nchan());    /* the channels notes may take (OP2_ONE_CORE_CAP on one core) */
+    }
     con_kv("voices_given_up", (int32_t)voice_kills);
     con_kv("track", (int32_t)song.sel + 1);
     con_kv("batt_raw", song.batt_raw);

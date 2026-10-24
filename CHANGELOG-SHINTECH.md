@@ -92,9 +92,9 @@ The 16BIT groovebox fork of Felucca (OPN2, PSG and PCM8 engines). Based on upstr
 - The chip is not clocked while it is silent (no note, every operator released to full attenuation, no write
   pending): an OPN2 track that plays nothing costs nothing. A note after such a pause differs from one on a chip
   clocked meanwhile only by the envelope counter's phase at its key on (as on the chip, where it runs free).
-- Without the second core (2ND CORE OFF, or it gave up) notes take channels 1..4 only (`OP2_ONE_CORE_CAP`); the
-  notes on 5 and 6 end when it gives up mid-play.
-- Console `status`: `opn2_c1_blocks`, `opn2_c1_failed`, `opn2_idle_blocks`.
+- Without the second core (2ND CORE OFF, or it gave up) notes take channels 1..3 only (`OP2_ONE_CORE_CAP`); the
+  notes past it end when it gives up mid-play.
+- Console `status`: `opn2_c1_blocks`, `opn2_c1_failed`, `opn2_idle_blocks`, `opn2_busy`, `opn2_nchan`.
 
 #### Device test (FM-1, 2ND CORE ON, HALL reverb; `tools/shintech/fm1midi.py` + console `status`)
 
@@ -112,3 +112,8 @@ No late blocks, no reboot, the second core took every block (`opn2_c1_blocks` +1
 With the chip unclocked while silent (same test): OPN2 tracks with no notes 14 % (46-54 % before: the chip ran
 whenever a track was OPN2), 1 note 35 %, 6 notes 64 % with the longest half 2,082 us (72 %); idle again within 9 s
 of the PAD's release.
+
+One core (2ND CORE OFF, ORGAN F14, `opn2_busy` from the console): a cap of 4 held 4 channels but took the longest
+half to 2,539 us (87 %, 72 % CPU): over the 75 % line. **The cap is 3:** 3 notes 61 % CPU, the longest half 2,099 us
+(72 %); 4, 6 and 8 notes held keep 3 channels (the rest stolen), all free after the release, no late block, no
+reboot.
