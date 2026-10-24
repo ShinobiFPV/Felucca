@@ -26,6 +26,8 @@ thanks the work below; each keeps its own licence (see [LICENSE](LICENSE), [LICE
   - The splash's lettering: rendered from [DejaVu Sans](https://dejavu-fonts.github.io) Bold (Bitstream Vera licence) by
     `tools/shintech/gen_splash.py` into an image; no font file is in the tree or the firmware
   - The OPN2 factory patches (`firmware/src/opn2_factory.h`): original, ShinTech's (GPL-3.0-only)
+  - PSG: the SN76489-class chip (`firmware/src/chips/psg.c`) written for this fork from the chip's documented behaviour
+    (no other emulator's code), and its 26 original factory presets (`psg_factory.h`) (GPL-3.0-only)
 - Contributions: [keremimo](https://github.com/keremimo) (white-key scales, #2), [ChanceTheMaker](https://github.com/ChanceTheMaker)
   (TRS MIDI, bend, sustain and clock, palettes, favourites, editor display settings: #8, #10, #11, #12),
   [andreahaku](https://github.com/andreahaku) (sample recording and trim, #29; SLICE manual slices and tests, #27, #22),

@@ -98,6 +98,38 @@
   engine must then cap the sounding FM channels (Phase 2).
 
 
+### Phase 3: the PSG engine
+
+- Engine 15, PSG (`firmware/src/eng_psg.c` over `chips/psg.c`, our own SN76489-class chip, register-driven: latch /
+  data bytes as on the chip). One shared chip, 3 tone channels and the noise channel, owned by the voices of the PSG
+  tracks (CHIP LIMIT as OPN2's). Noise white or periodic, at the chip's three rates or tracking its note through
+  tone 3 (which it then takes, silenced, as on the chip). The shift register SEGA 16-bit (the default) or TI 15-bit.
+- Volume in the chip's 16 levels (2 dB steps): the track's ADSR and velocity rounded to them each block, or DRV 1..15,
+  a driver's stepped decay (a step every DRV frames). ARP (11 chords), its speed, VIB (after a delay) and SWP, all in
+  60 Hz frames. A mild high-pass (~55 Hz) on each channel (the chip's output is unipolar).
+- WAVE, 11 shapes: the chip's SQUARE, WHITE and PERIOD (the card reads **WAVE**; the panel **AUTHENTIC**), and the
+  extension's PLS 25 / 12 / 6, SAW, TRI, R-SAW (ramps on the chip's own volume levels, as fast volume writes make them)
+  and METAL / BUZZ (short noise sequences) (the card reads **WAVE+**; the panel **EXTENDED**).
+- 26 original factory presets in 7 categories. EDIT 1's panel draws the wave from the chip's levels; EDIT 2's (MACROS)
+  one second of the driver: the pitch the macros make and the volume DRV steps.
+- The render steps each channel a flip at a time (one or two steps a sample instead of five or six ticks), equal to
+  tick by tick sample for sample (`tests/psg_engine_test.c`), and runs on the second core with OPN2's channels 4..6.
+- Stores: as OPN2's (FUNB projects, version 6 user presets, favourites in row 2's upper half). Last in the engine order;
+  the EDIT layer's shared key goes DRUM -> OPN2 -> PSG.
+
+#### Device test (FM-1, 2ND CORE ON, HALL reverb)
+
+| state | cpu_pct | longest half (of 2,902 us) |
+|---|---|---|
+| idle | 14 % | 817-849 us |
+| PSG, 3 tone notes (first render, tick by tick) | 37 % | 1,301 us |
+| PSG, 3 tone notes (a flip at a time) | 18 % | 849 us |
+| PSG noise bass (TRK) / MAJOR ARP | 17 % / 21 % | 849 us |
+| T1 + T2 OPN2 (6 channels) + T3 PSG (3 tones), PSG on core 1 | 65 % | 2,205 us (76 %) |
+| the same, PSG's block on the second core | 64 % | 2,150 us (74 %) |
+
+No late blocks, no reboot.
+
 ### Phase 2: the OPN2 engine
 
 - Engine 14, OPN2 (`firmware/src/eng_opn2.c`): one shared chip, 6 channels owned by the voices of the OPN2 tracks

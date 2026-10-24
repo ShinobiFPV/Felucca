@@ -207,7 +207,7 @@ for (let i = 0; i < 3; i++) {
 const ratio = best / 1000, max = +(process.env.BENCH_MAX || 0.5);
 check(`1 s of the heavy song (FM6 PHYS GRAIN chords + DRUM) in ${best.toFixed(1)} ms: ${(ratio * 100).toFixed(1)} % of real time`, ratio < max);
 
-// ---- ShinTech: OPN2 (the shared chip) in the browser: two OPN2 tracks of chords and the drums play, the same twice
+// ---- ShinTech: the 16BIT layout in the browser: two OPN2 tracks of chords, a PSG arpeggio and the drums, the same twice
 async function opn2Song() {
   const d = await device(null);
   d.render(500 + SPLASH_MORE);
@@ -218,7 +218,7 @@ async function opn2Song() {
   return d;
 }
 const o1 = await opn2Song(), o2 = await opn2Song();
-check(`OPN2: T1 BASS + T2 PAD chords (the shared chip) and the drums play (peak ${o1.peak.toFixed(3)}), twice the same samples`,
+check(`16BIT: T1 + T2 OPN2 chords, T3 PSG ARP, the drums play (peak ${o1.peak.toFixed(3)}), twice the same samples`,
       o1.peak > 0.05 && o1.peak < 1.0 && o1.sig === o2.sig);
 best = Infinity;
 o1.rec = false;
@@ -227,6 +227,6 @@ for (let i = 0; i < 3; i++) {
   o1.render(1000);
   best = Math.min(best, performance.now() - t0);
 }
-check(`OPN2: 1 s of that song in ${best.toFixed(1)} ms: ${(best / 10).toFixed(1)} % of real time`, best / 1000 < max);
+check(`16BIT: 1 s of that song in ${best.toFixed(1)} ms: ${(best / 10).toFixed(1)} % of real time`, best / 1000 < max);
 console.log(fails ? `emu: ${fails} FAILED` : "emu: all ok");
 process.exit(fails ? 1 : 0);

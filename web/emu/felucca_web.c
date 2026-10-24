@@ -491,8 +491,8 @@ EXPORT void web_test_heavy(void)
     ui.force = 1;
 }
 
-/* ShinTech: an OPN2 song (emu_test.mjs): T1 F1 SYNTH BASS, T2 F18 WARM PAD, three-note chords on every step over the
- * shared chip (CHIP LIMIT at six), T4 the drums as the heavy song's */
+/* ShinTech: the 16BIT layout's song (emu_test.mjs): T1 OPN2 F1 SLAP BASS, T2 OPN2 F18 WARM PAD, three-note chords on
+ * every step over the shared chip (CHIP LIMIT at six), T3 PSG MAJOR ARP, T4 the drums as the heavy song's */
 EXPORT void web_test_opn2(void)
 {
     static const uint8_t CH[4][3] = {{48, 55, 60}, {45, 52, 57}, {41, 48, 53}, {43, 50, 55}};
@@ -509,9 +509,12 @@ EXPORT void web_test_opn2(void)
             put_step(t, i, 3, n, ST_NOTE, 0);
         }
     }
-    host_preset(&trk[2], 0, 0);
-    for (i = 0; i < 16u; i++)
-        put_step(&trk[2], i, 0, 0, ST_NOTE, 0);   /* (T3 silent: the chip's two tracks and the drums) */
+    host_preset(&trk[2], ENGI_PSG, 8u);         /* T3: PSG MAJOR ARP, a note every other step (the 16BIT layout) */
+    trk[2].p[P_VOICE] = V_POLY;
+    for (i = 0; i < 16u; i++) {
+        uint8_t n = (uint8_t)(CH[i / 4u][0] + 12u);
+        put_step(&trk[2], i, i % 2u ? 0u : 1u, &n, ST_NOTE, 0);
+    }
     ui.force = 1;
 }
 
