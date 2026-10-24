@@ -873,7 +873,8 @@ static const uint16_t ENG_VCOST[NENGINES] = {163, FELUCCA_FM4 ? 181 : 0, 162, 67
                                              0,
 #endif
                                              20,  /* OPN2: its voices only copy the chip's channels (op2_mix_begin) */
-                                             12   /* PSG: likewise (psg_mix_begin) */
+                                             12,  /* PSG: likewise (psg_mix_begin) */
+                                             130  /* PCM8: a DRUM or SLICE voice, and the DAC */
 };
 #endif
 

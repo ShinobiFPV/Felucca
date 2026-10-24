@@ -124,7 +124,7 @@ static uint32_t trk_vmode(const track_t *t)
 /* ------------------------------------------------- the shared voice budget --- */
 /* ShinTech: an engine of an emulated chip (OPN2) has the chip's own voices (its channels, its CHIP LIMIT: eng_opn2.c):
  * its parts' voices are not in the shared budget, are never taken for another part, and never wait for room */
-static int eng_chip(uint32_t e) { return e == ENGI_OPN2 || e == ENGI_PSG; }
+static int eng_chip(uint32_t e) { return e == ENGI_OPN2 || e == ENGI_PSG || e == ENGI_PCM8; }   /* (PCM8: the DAC's 3) */
 static uint32_t voices_busy(void)                       /* sounding voices of all parts (not the fading ones) */
 {
     uint32_t p, i, n = 0;
@@ -758,6 +758,8 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
         e->render(t, v, T_SPREAD(t) > v->side ? SPREAD_BUF(t) : out, n, &m);   /* (SPREAD: the left ones) */
         nr++;
     }
+    if (e->post)                                        /* ShinTech: the part's own processing (PCM8's DAC) */
+        e->post(t, out, n);
     if (T_SPREAD(t))
         SPREAD_SUM(out, t);                /* out: every voice; spread_buf: the left ones */
     if (fade) {

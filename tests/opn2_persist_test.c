@@ -265,6 +265,30 @@ int main(void)
          favorite_has(2, 1) && favorites.factory[2][16 + 25 / 8] == 1u << (25 % 8);
     pcheck("PSG: a favourite in PHASE's row's unused upper half, PHASE's and OPN2's own untouched", ok);
 
+    /* 8. PCM8 (engine 16): FUNB, version 6, favourites in row 3's upper half */
+    ui_power_on();
+    set_engine_of(&trk[3], ENGI_PCM8);
+    apply_preset_to(&trk[3], 2);                  /* CRUNCH KIT */
+    project_capture(&a);
+    ok = proj_pack(&st, &a);
+    memcpy(&magic, st.raw, 4);
+    ok &= magic == 0x46554E42u && proj_import(&b, &st, sizeof st) && !memcmp(&a, &b, sizeof a);
+    trk[3].p[P_E2] = 0;
+    project_restore_runtime(&b);
+    pcheck("PCM8: a project with a PCM8 track packs as FUNB and comes back (T4 PCM8, 4 bits)",
+           ok && trk[3].eng_req == ENGI_PCM8 && trk[3].p[P_E2] == 1);
+    ui_power_on();
+    song.sel = 3;
+    set_engine(ENGI_PCM8);
+    up_store(8, "PCMKIT");
+    pcheck("PCM8: a user preset of it: a version 6 record, engine 16", up_used(8) && up_rec(8)->ver == UP_VER_16BIT &&
+           up_rec(8)->engine == ENGI_PCM8);
+    memset(&favorites, 0, sizeof favorites);
+    favorite_set(3, 0, 1);                        /* LOFI preset 1 */
+    ok = favorite_set(ENGI_PCM8, 13, 1) && favorite_has(ENGI_PCM8, 13) && !favorite_has(ENGI_PSG, 13) &&
+         favorite_has(3, 0) && favorites.factory[3][16 + 13 / 8] == 1u << (13 % 8);
+    pcheck("PCM8: a favourite in LOFI's row's unused upper half, LOFI's and PSG's own untouched", ok);
+
     printf("opn2_persist_test: %s\n", pbad ? "FAILED" : "all checks ok");
     return pbad != 0;
 }

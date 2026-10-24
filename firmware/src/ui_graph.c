@@ -1236,7 +1236,7 @@ static uint32_t graph_signature(void)
     if (pg->graph == GR_SLICES && slice_page_ok()) h ^= slice_sig();
 #endif
     if (pg->scope == SC_ENGINE && (ENGINES[t->eng_req % NENGINES] == &ENG_WHEEL || t->eng_req % NENGINES == ENGI_FM6 ||
-                                   t->eng_req % NENGINES == ENGI_PSG ||
+                                   t->eng_req % NENGINES == ENGI_PSG || t->eng_req % NENGINES == ENGI_PCM8 ||
                                    (FELUCCA_FM4 && t->eng_req % NENGINES == ENGI_DIGITAL)))
         h ^= (ui.hot_t ? ui.hot_col + 1u : 0u) * 65537u;
     if ((pg->scope == SC_ENGINE || fop_page(pg->graph)) && t->eng_req % NENGINES == ENGI_FM6)   /* the patch (PAT's algorithm,
@@ -2354,6 +2354,7 @@ static void draw_graph(void)
             break;
         default:
             if (pg->scope == SC_ENGINE && t->eng_req % NENGINES == ENGI_OPN2) graph_opn2(t, c, 4u);   /* EDIT 1 and 2 */
+            else if (pg->scope == SC_ENGINE && t->eng_req % NENGINES == ENGI_PCM8) graph_pcm8(t, c);   /* the DAC */
             else if (pg->scope == SC_ENGINE && t->eng_req % NENGINES == ENGI_PSG) {   /* EDIT 1: the wave, 2: the macros */
                 if (pg->id[0] == P_E0) graph_psg_wave(t, c);
                 else graph_psg_macros(t, c);

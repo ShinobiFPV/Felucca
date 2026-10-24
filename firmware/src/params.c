@@ -77,7 +77,7 @@ static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-",
 #else
                                              "-",
 #endif
-                                             "OPN2", "PSG",   /* ShinTech 16BIT */
+                                             "OPN2", "PSG", "PCM8",   /* ShinTech 16BIT */
 };
 _Static_assert(sizeof N_ENGNAME / sizeof N_ENGNAME[0] == NENGINES, "an engine name for every engine number");
 

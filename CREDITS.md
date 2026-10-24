@@ -28,6 +28,7 @@ thanks the work below; each keeps its own licence (see [LICENSE](LICENSE), [LICE
   - The OPN2 factory patches (`firmware/src/opn2_factory.h`): original, ShinTech's (GPL-3.0-only)
   - PSG: the SN76489-class chip (`firmware/src/chips/psg.c`) written for this fork from the chip's documented behaviour
     (no other emulator's code), and its 26 original factory presets (`psg_factory.h`) (GPL-3.0-only)
+  - PCM8: an 8-bit DAC model over Felucca's own DRUM and SLICE voices (`eng_pcm8.c`); no new samples (GPL-3.0-only)
 - Contributions: [keremimo](https://github.com/keremimo) (white-key scales, #2), [ChanceTheMaker](https://github.com/ChanceTheMaker)
   (TRS MIDI, bend, sustain and clock, palettes, favourites, editor display settings: #8, #10, #11, #12),
   [andreahaku](https://github.com/andreahaku) (sample recording and trim, #29; SLICE manual slices and tests, #27, #22),

@@ -42,6 +42,7 @@ static uint8_t eng_mem_owner[NPART];       /* engine index + 1 whose state is in
 #endif
 #include "eng_opn2.c"           /* ShinTech 16BIT: OPN2, an emulated YM2612 (chips/opn2.c, the ymfm port, BSD-3-Clause) */
 #include "eng_psg.c"            /* ShinTech 16BIT: PSG, an SN76489-class chip (chips/psg.c, our own) */
+#include "eng_pcm8.c"           /* ShinTech 16BIT: PCM8, DRUM's and SLICE's voices through an 8-bit DAC */
 
 /* the editor protocol, user presets and projects store these indices: append, never reorder */
 static const engine_t *const ENGINES[NENGINES] = {
@@ -69,6 +70,7 @@ static const engine_t *const ENGINES[NENGINES] = {
 #endif
     &ENG_OPN2,                   /* 14 (ENGI_OPN2): ShinTech 16BIT */
     &ENG_PSG,                    /* 15 (ENGI_PSG): ShinTech 16BIT */
+    &ENG_PCM8,                   /* 16 (ENGI_PCM8): ShinTech 16BIT */
 };
 
 /* a track's engine number as an index (the audio paths: a compare, cheaper than % NENGINES; a bad number: 0) */
@@ -131,6 +133,7 @@ static const uint8_t ENGINE_ORDER[NENG_SHOWN] = {
     10,                          /* DRUM */
     ENGI_OPN2,                   /* ShinTech 16BIT, last: OPN2, PSG (the EDIT layer's DRUM key steps on to them: ui_layer.c) */
     ENGI_PSG,
+    ENGI_PCM8,
 };
 
 /* the engines one can pick (engine 1 only with FELUCCA_FM4), in ENGINE_ORDER: eng_ok(e), the n-th of them

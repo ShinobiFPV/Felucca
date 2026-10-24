@@ -393,7 +393,7 @@ static void con_params(void)
 static void con_exec(const char *p)
 {
     if (con_word(&p, "help") || con_word(&p, "?"))
-        con_puts("status  dbg  inp  crash  params  memr ADDR [LEN]  flr OFF [LEN]  uboot yes\r\n");
+        con_puts("status  dbg  inp  crash  params  clr  memr ADDR [LEN]  flr OFF [LEN]  uboot yes\r\n");
     else if (con_word(&p, "status"))
         con_status();
     else if (con_word(&p, "dbg"))
@@ -404,6 +404,11 @@ static void con_exec(const char *p)
         con_inp();
     else if (con_word(&p, "params"))
         con_params();
+    else if (con_word(&p, "clr")) {                    /* ShinTech: audio_max_us and audio_late from now (a measurement) */
+        felucca_dbg.max_us = 0;
+        felucca_dbg.late = 0;
+        con_puts("cleared\r\n");
+    }
 #if FELUCCA_CHIPBENCH
     else if (con_word(&p, "bench"))
         cb_console(p);                                 /* ShinTech: the OPN2 core benchmark (chipbench.c) */

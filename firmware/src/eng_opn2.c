@@ -331,16 +331,23 @@ static void voice_kill(voice_t *v);             /* (voice.c) */
 
 /* the channels notes may take: all six; on a device without its second core answering (MENU > SYSTEM > 2ND CORE
  * OFF, or it gave up) OP2_ONE_CORE_CAP (felucca.c): one core cannot render six channels and the rest in time */
+#ifndef ENGI_PCM8
+#define ENGI_PCM8 16u
+#endif
 static uint32_t op2_nchan(void)
 {
+    uint32_t n = OPN2_CHANNELS, p;
+    for (p = 0; p < NPART; p++)                 /* a PCM8 track: channel 6 is the DAC, as on the console (5 FM) */
+        if (trk[p].engine == ENGI_PCM8)
+            n = OPN2_CHANNELS - 1u;
 #ifdef OP2_ONE_CORE_CAP
 #if FELUCCA_CPU2
     if (C1_ON())
-        return OPN2_CHANNELS;
+        return n;
 #endif
-    return OP2_ONE_CORE_CAP;
+    return OP2_ONE_CORE_CAP < n ? OP2_ONE_CORE_CAP : n;
 #else
-    return OPN2_CHANNELS;
+    return n;
 #endif
 }
 

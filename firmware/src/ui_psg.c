@@ -102,3 +102,39 @@ static void graph_psg_macros(const track_t *t, uint16_t c)
         fmt_int(b + str_len(b), (int32_t)drv);
     cv_text_r(228, 4 - GOY, &AF_S, b, hot == P_E2 ? T_ACCENT : T_TEXT, T_SURF);
 }
+
+/* PCM8's EDIT panels (ShinTech 16BIT; eng_pcm8.c): a sine through the DAC as set, a cycle and a half: the ideal faint
+ * (RAISE) behind, the DAC's levels THEME (RATE: its steps a cycle, 12K few, 48K many; BITS: 8 fine, 4 coarse; LADR its
+ * gap at zero); top left the rate and the bits, top right the source. The knob just turned in ACCENT */
+static void graph_pcm8(const track_t *t, uint16_t c)
+{
+    static const uint32_t STEPS[3] = {16, 32, 64};   /* (the panel's cycle as a ~750 Hz one: its DAC ticks) */
+    uint32_t hot = ui.hot_t ? (uint32_t)cur_page()->id[ui.hot_col & 3u] : 0u, r = (uint32_t)clamp(t->p[P_E1], 0, 2);
+    uint32_t bits4 = t->p[P_E2] != 0, k, x;
+    int32_t top = 26, bot = 86, mid = 56, amp = 28, x0 = 12, w = 216, py = mid, ladr = clamp(t->p[P_E6], 0, 127);
+    uint16_t lc = hot == P_E1 || hot == P_E2 || hot == P_E7 ? T_ACCENT : c;
+    char b[24];
+    cv_rect(PANEL_X0, bot + 2, PANEL_W, 1, T_RAISE);
+    cv_rect(x0, mid, w, 1, T_RAISE);
+    for (x = 0; x < (uint32_t)w; x++) {          /* the ideal sine (1.5 cycles over the 216 px; sine_i: Q15) */
+        int32_t y = mid - sine_i(x * (uint32_t)((3ull << 31) / 216u)) * amp / 32767;
+        cv_rect(x0 + (int32_t)x, y, 1, 1, T_RAISE);
+    }
+    for (k = 0; k < STEPS[r] * 3u / 2u; k++) {   /* the DAC's held levels */
+        int32_t xa = x0 + (int32_t)(k * (uint32_t)w * 2u / (STEPS[r] * 3u)), xb = x0 + (int32_t)((k + 1u) * (uint32_t)w * 2u / (STEPS[r] * 3u));
+        int32_t q = (sine_i(k * (0x80000000u / (STEPS[r] / 2u))) * 127) >> 15, y;
+        if (bits4)
+            q = clamp((q + 8) >> 4, -8, 7) * 16;
+        y = mid - q * amp / 127 - (q > 0 ? ladr : q < 0 ? -ladr : 0) * amp / (127 * 8);
+        y = clamp(y, top, bot);
+        if (k && y != py)
+            cv_rect(xa, y < py ? y : py, 2, (y < py ? py - y : y - py) + 2, lc);
+        cv_rect(xa, y, xb - xa + 2, 2, lc);
+        py = y;
+    }
+    str_cpy(b, N_PCM8_RATE[r], sizeof b);
+    str_cpy(b + str_len(b), bits4 ? " 4-BIT" : " 8-BIT", 8);
+    cv_text(10, 4 - GOY, &AF_S, b, lc == T_ACCENT ? T_ACCENT : T_MID);
+    cv_text_r(228, 4 - GOY, &AF_S, N_PCM8_SRC[clamp(t->p[P_E0], 0, (int32_t)PCM8_NSRC - 1)], hot == P_E0 ? T_ACCENT : T_TEXT,
+              T_SURF);
+}

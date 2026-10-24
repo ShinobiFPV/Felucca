@@ -38,6 +38,7 @@ static const char *const PRESET_CAT[NENGINES] = {
     "BBBBBBLLLLLLKKKKKPPPPUUUUFFFFDDD",   /* 14 OPN2 (ShinTech 16BIT): the basses, leads, keys, pads, plucks, FX and
                                   * drums of opn2_factory.h, in that order */
     "BBBBLLLLKKKKPPUUFFFFFDDDDD",         /* 15 PSG (ShinTech 16BIT): psg_factory.h's, in the same order */
+    "DDDDDDDDDDDDDD",                     /* 16 PCM8 (ShinTech 16BIT): pcm8_factory.h's kits */
 };
 static uint32_t preset_cat(uint32_t e, uint32_t k)    /* factory preset k of engine e */
 {

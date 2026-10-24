@@ -229,6 +229,7 @@ static const uint8_t MIDI_CC_ENG[NENGINES] = {
 #endif
     0x30,                                             /* OPN2 MLVL (ShinTech 16BIT) */
     0x00,                                             /* PSG - */
+    0x00,                                             /* PCM8 - */
 };
 /* a CC sets parameter id of track t as a knob would: 0..127 over its range */
 static void midi_cc_set(track_t *t, uint32_t id, uint32_t value)

@@ -38,6 +38,11 @@ mkdir -p build/shintech/psg_demo
 $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/psg_engine_test" tests/psg_engine_test.c -lm
 "$OUT/psg_engine_test" build/shintech/psg_demo
 
+echo "== the PCM8 engine (firmware/src/eng_pcm8.c): the DAC, the kits, the slices, modes, a source change, sound"
+mkdir -p build/shintech/pcm8_demo
+$CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/pcm8_engine_test" tests/pcm8_engine_test.c -lm
+"$OUT/pcm8_engine_test" build/shintech/pcm8_demo
+
 echo "== OPN2 patches in projects (FUN11) and user presets (version 6)"
 $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/opn2_persist_test" tests/opn2_persist_test.c -lm
 "$OUT/opn2_persist_test"

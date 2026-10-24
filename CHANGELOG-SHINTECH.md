@@ -98,6 +98,37 @@
   engine must then cap the sounding FM channels (Phase 2).
 
 
+### Phase 4: the PCM8 track
+
+- Engine 16, PCM8 (`firmware/src/eng_pcm8.c`): the console's 8-bit DAC as drivers used it, a few voices mixed in
+  software into one DAC. Its sounds are Felucca's own, **nothing new in flash** (the image keeps ~30 KB free, the RAM
+  pool unchanged): SRC STD 80 10 66 55 77 DEEP TIGHT PERC (DRUM's synthesized kits, the GM key map), BREAK (SLICE's
+  loop, its hits as slices), USR1..USR3 (a user slot sliced by SLICE, its AUTO onsets or MAN slices, one hit per slice
+  in GM order on the keys: 36 kick, 38 snare, 42 closed hat, 46 open hat, 39 clap, 45 low tom, 50 high tom, 49 crash,
+  37 rim, 51 ride, 56 cowbell, 54 tambourine). A voice is the source engine's own voice, called with PCM8's values in
+  its places; after the part's voices (a new optional `engine_t.post`) the mix goes through the DAC: sampled and held
+  at RATE 12 / 24 / 48 kHz, rounded to BITS 8 or 4, the ladder step away from zero (LADR), LGCY CLEAN / EARLY / LATE.
+  MODE 3 VOICE or 1 SHOT (one stream). 14 presets. An EDIT panel draws a sine through the DAC as set.
+- **Sample slots: the three user slots that exist** (0xA0000..0xDBFFF, 80 KiB each, ~7 s of 22.05 kHz ADPCM, shared
+  with SAMPLE, GRAIN and SLICE), filled with the editor's existing upload, recording and trim. The flash map has no
+  other free sectors; more slots would mean taking the projects', the user presets' or the OTA staging's room, which
+  this fork does not do (stability first). A slot holds a whole kit as a row of hits (SLICE finds up to its AUTO
+  count of onsets).
+- With a PCM8 track in the project OPN2 has five FM channels: channel 6 is the DAC, as on the console.
+- Stores: as OPN2's and PSG's (FUNB, version 6 presets, favourites in row 3's upper half). Last in the engine order.
+
+#### Device test (FM-1, 2ND CORE ON, HALL reverb; the console's new `clr` resets the peak for each case)
+
+| case | longest half (of 2,902 us) | voices shed |
+|---|---|---|
+| PCM8 hits alone / the stock DRUM's | 1,181 / 1,073 us | 0 |
+| OPN2 x6 + PSG x3 | 2,002-2,069 us (~70 %) | 0 |
+| OPN2 x6 + PSG x3 + PCM8 hits | 2,499 us (86 %) | 3 |
+| OPN2 x5 + PSG x3 + PCM8 hits / + the stock DRUM | 2,517 / 2,305 us (87 / 79 %) | 4 / 0 |
+
+Everything at once is over the 75 % line: Felucca's overload guard (audio.c: two halves over 85 %) fades a voice, no
+late block, no reboot. The stock DRUM in the same mix also passes 75 %.
+
 ### Phase 3: the PSG engine
 
 - Engine 15, PSG (`firmware/src/eng_psg.c` over `chips/psg.c`, our own SN76489-class chip, register-driven: latch /

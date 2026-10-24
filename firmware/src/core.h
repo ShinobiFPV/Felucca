@@ -28,8 +28,8 @@
                                             * second core (mod.c, voice.c SPREAD, eng_formant.c): one each with two cores,
                                             * one for all with one, as up to 1.6 */
 #define C1_PI(t) ((uint32_t)((t) - trk) % C1_NP)   /* a part's copy */
-#define NENGINES 16u              /* ShinTech: OPN2 (14), PSG (15) after SLICE (13); without FELUCCA_SLICE 13 is reserved,
-                                  * so the stored numbers never move */
+#define NENGINES 17u              /* ShinTech: OPN2 (14), PSG (15), PCM8 (16) after SLICE (13); without FELUCCA_SLICE 13 is
+                                  * reserved, so the stored numbers never move */
 #define NENG_V16 14u              /* NENGINES of Felucca 1.6 (13 + SLICE): the value the stores and the editor protocol use
                                   * as "the user presets" (favorites.c, editor_preferences.c), and the favourites table's
                                   * engine rows (favorites.factory[14] / [15] hold the MIDI LEARN map and the palette):
@@ -115,6 +115,7 @@ static void params_by_count(int16_t *out, const int16_t *in, uint32_t np, const 
 #define ENGI_DRUM 10u
 #define ENGI_OPN2 14u             /* ShinTech 16BIT: the emulated YM2612 (eng_opn2.c) */
 #define ENGI_PSG 15u              /* ShinTech 16BIT: the SN76489-class PSG (eng_psg.c) */
+#define ENGI_PCM8 16u             /* ShinTech 16BIT: the 8-bit DAC sample track (eng_pcm8.c) */
 /* PHYS MODEL DRUM (MODEL 4, before 1.0) -> the DRUM engine, its E values in place: {MODEL, TUNE, TONE, DECY,
  * SNAP, ACC, KICK 0..127, PERC 0..127} -> {KIT, TUNE, TONE, DECY, SNAP, ACC, KICK 0..1, DRV 0}. 1 = it was one
  * (its engine is ENGI_DRUM now); projects (project.c) and user presets (upreset.c) */
