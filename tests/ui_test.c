@@ -191,6 +191,7 @@ static void ui_power_on(void)
     memset(up_bank, 0, sizeof up_bank);
     for (i = 0; i < G_COUNT; i++)
         song.g[i] = GP[i].def;
+    song.g[G_ROUTE] = 0;  /* ShinTech: upstream's tests on upstream's ROUT (CH1-4); the default MPK: mpk_test */
     undo_depth++;
     for (i = 0; i < NTRK; i++) {
         track_t *t = &trk[i];

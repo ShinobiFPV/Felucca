@@ -358,6 +358,9 @@ typedef struct {
 } song_t;
 #define ROUTE_SEL 1
 #define ROUTE_TRACK 5                /* G_ROUTE: TRACK, each track on its own channel (song.mch) */
+#define ROUTE_MPK 6                  /* ShinTech: MPK (the default), as SEL but channel 10 plays the first DRUM track
+                                     * (an Akai MPK mini IV: keys on 1, pads on 10; seq.c midi_slot) */
+#define ROUTE_HEARS_ALL(r) ((r) == ROUTE_SEL || (r) == ROUTE_MPK)   /* every channel heard (no block) */
 #define MCH_OMNI 16u
 #define MCH_OFF 17u
 #define MCH_N 18u                    /* channels 1..16, OMNI, OFF */

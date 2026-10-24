@@ -286,11 +286,12 @@ static int route_test(void)
 static uint32_t out_last(void) { return mo_w != mo_r ? midi_out_q[(mo_w - 1u) % MQ] : 0u; }
 static int route_block_test(void)
 {
-    static const char *const NAME[6] = {"CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16", "TRACK"};
+    static const char *const NAME[7] = {"CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16", "TRACK", "MPK"};
     int bad = 0, ok = 1; uint32_t r, ch, i;
-    ok = GP[G_ROUTE].max == 5 && GP[G_ROUTE].def == 0 && ROUTE_TRACK == 5;
-    for (r = 0; r < 6u; r++) ok &= str_eq(GP[G_ROUTE].names[r], NAME[r]);
-    bad += check("ROUT: CH1-4 SEL (stored 0 1, as before), CH5-8 CH9-12 CH13-16 appended, 1.5.5 TRACK", ok);
+    ok = GP[G_ROUTE].max == 6 && GP[G_ROUTE].def == ROUTE_MPK && ROUTE_TRACK == 5 && ROUTE_MPK == 6;   /* (ShinTech: MPK,
+                                                                                                         * the default) */
+    for (r = 0; r < 7u; r++) ok &= str_eq(GP[G_ROUTE].names[r], NAME[r]);
+    bad += check("ROUT: CH1-4 SEL (stored 0 1, as before), CH5-8 CH9-12 CH13-16 appended, 1.5.5 TRACK, ShinTech MPK", ok);
     for (r = 2; r <= 4u; r++) {
         uint32_t b = (r - 1u) * 4u;
         midi_test_reset(); song.sel = 2; song.g[G_ROUTE] = (int16_t)r;

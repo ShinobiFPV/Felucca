@@ -63,7 +63,7 @@ static uint32_t trk_index(const track_t *t) { return (uint32_t)(t - trk); }
 static int32_t midi_base(void)
 {
     uint32_t r = (uint32_t)song.g[G_ROUTE];
-    return r == ROUTE_SEL ? -1 : r == ROUTE_TRACK ? -2 : r ? (int32_t)(r - 1u) * 4 : 0;
+    return r == ROUTE_SEL ? -1 : r == ROUTE_TRACK ? -2 : r == ROUTE_MPK ? -3 : r ? (int32_t)(r - 1u) * 4 : 0;
 }
 /* MIDI channel 0..15 of track i (keys -> MIDI out): its channel in ROUT's block (SEL, CH1-4: 1..4); TRACK its own (OMNI,
  * OFF: as CH1-4) */
@@ -1199,6 +1199,13 @@ static int32_t midi_slot(uint32_t ch)      /* the track channel ch plays, -1 non
 {
     int32_t b = midi_base(), omni = -1;
     uint32_t i;
+    if (b == -3) {                          /* ShinTech: MPK: channel 10 (a controller's pads, the GM drum channel) plays
+                                             * the first DRUM track; the rest (and 10 without one) the selected track */
+        for (i = 0; ch == 9u && i < NPART; i++)
+            if (drum_track(&trk[i]))
+                return (int32_t)i;
+        return -1;
+    }
     if (b != -2)
         return b >= 0 && ch - (uint32_t)b < NPART ? (int32_t)(ch - (uint32_t)b) : -1;
     for (i = 0; i < NPART; i++) {
@@ -1327,7 +1334,7 @@ static void events_block(uint32_t n)
     }
     if (midi_route != (uint8_t)song.g[G_ROUTE]) {     /* ROUT changed: a block lets go of the other channels */
         midi_route = (uint8_t)song.g[G_ROUTE];
-        if (midi_route != ROUTE_SEL)
+        if (!ROUTE_HEARS_ALL(midi_route))         /* (ShinTech: MPK hears every channel too) */
             midi_route_block();
     }
     pr = panic_req;

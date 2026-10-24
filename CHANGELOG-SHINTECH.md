@@ -13,6 +13,18 @@
   `firmware/src/genesynth_splash.h` (checked in, ~8 KB run-length coded); `tests/ui_render.c` checks that it decodes
   and is what the screen shows.
 
+### Akai MPK mini IV by default
+
+- A new MIDI IN routing, **MPK** (MENU > MIDI > MIDI IN, appended after TRACK), is the default for new projects
+  (upstream: CH1-4): as SEL every channel plays the selected track, but channel 10 (the MPK's pads, the GM drum
+  channel) plays the first DRUM track. Older projects keep their own setting.
+- The MPK mini IV's eight knobs (a User preset: CC 24..31, captured from one) step EDIT 1 / 2's eight macros of the
+  track the keys play, relative (set the MPK's Global Menu KnobM to **Rel**): two's complement, faster turns move
+  further, no jumps. MIDI LEARN of those CCs still wins. On any routing.
+- Captured from the MPK mini IV (User 1): keys and knobs channel 1, knobs CC 24..31, pads notes 36..43 on channel
+  10 (Bank A), joystick pitch bend and CC 1. `tests/mpk_test.c`.
+- A project saved with MPK opened on upstream Felucca reads an unknown ROUT value.
+
 ### Phase 0: build, baseline, decisions
 - Forked hugelton/Felucca and hugelton/Felucca-WebApp to ShinobiFPV; upstream remotes are fetch-only.
 - Added BUILDING-SHINTECH.md: the Windows 11 / WSL2 build, verified. Stock v1.6.1 builds (felucca.fwsc 610,090 B),
@@ -103,6 +115,12 @@
 - Without the second core (2ND CORE OFF, or it gave up) notes take channels 1..3 only (`OP2_ONE_CORE_CAP`); the
   notes past it end when it gives up mid-play.
 - Console `status`: `opn2_c1_blocks`, `opn2_c1_failed`, `opn2_idle_blocks`, `opn2_busy`, `opn2_nchan`.
+
+- On-device editing: the OPERATOR, OP ENV and OPERATOR 2 pages for an OPN2 track (`ui_opn2op.c`): OP 1..4, MUL /
+  RATIO, DT / FINE, TL; the envelope stage's AR / DR / SR / RR and SL; DT, KS, AM. They write the track's own patch
+  (SLOT OWN), one undo per gesture (undo now keeps the OPN2 patch). The algorithm chart (the YM2612's eight, with
+  the operator or the macro turned in the accent) on those pages and on EDIT 1 / 2; the envelope drawn in dB with
+  the other three operators behind it. SSG-EG and CH3 offsets: the web editor's.
 
 #### Device test (FM-1, 2ND CORE ON, HALL reverb; `tools/shintech/fm1midi.py` + console `status`)
 

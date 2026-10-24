@@ -286,11 +286,30 @@ static int __attribute__((noinline)) midi_learned(uint32_t cc, uint32_t value)
     return hit;
 }
 
+/* ShinTech: an Akai MPK mini IV's eight knobs (a User preset: CC 24..31, KnobM Rel) step EDIT 1 / 2's eight macros
+ * (P_E0..P_E7) of the track the channel plays, as the device's knobs would: relative, two's complement (1..63 up,
+ * 65..127 down by 128 - v; faster turns send more), never a jump. 0 and 64 move nothing */
+#define MPK_KNOB_CC0 24u
+static void midi_cc_step(track_t *t, uint32_t id, int32_t steps)
+{
+    const param_desc_t *d = param_desc_of(eng_idx(t->eng_req), id);
+    int32_t v = clamp(t->p[id] + steps, d->min, d->max);
+    if (d->max <= d->min || t->p[id] == v)
+        return;
+    t->p[id] = (int16_t)v;
+    (void)motion_capture(t, id, (int16_t)v);
+}
+
 static void __attribute__((noinline)) midi_cc_map(track_t *t, uint32_t cc, uint32_t value)
 {
     uint32_t i, id = 0xFFFFu, e;
     if (midi_learned(cc, value))                /* (a learned CC is the user's: not the map's) */
         return;
+    if (cc - MPK_KNOB_CC0 < 8u) {               /* ShinTech: the MPK's knobs, relative */
+        if (value & 63u)
+            midi_cc_step(t, P_E0 + cc - MPK_KNOB_CC0, value < 64u ? (int32_t)value : (int32_t)value - 128);
+        return;
+    }
     for (i = 0; i < NELEM(MIDI_CC_MAP); i++)
         if (MIDI_CC_MAP[i][0] == cc)
             id = MIDI_CC_MAP[i][1];
@@ -397,7 +416,7 @@ static volatile uint8_t *const mpc_io;
  * channel aftertouch, Program Change, so they stay free for other instruments. */
 static void __attribute__((noinline)) midi_event(uint32_t st, uint32_t ch, uint32_t d1, uint32_t d2)
 {
-    if (song.g[G_ROUTE] != 1 && !midi_in_block(ch))
+    if (!ROUTE_HEARS_ALL(song.g[G_ROUTE]) && !midi_in_block(ch))   /* (SEL; ShinTech: MPK) */
         return;
     if (st == 0x90u || st == 0x80u)
         midi_note_event(ch, d1, st == 0x90u ? d2 : 0);

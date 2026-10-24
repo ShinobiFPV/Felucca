@@ -1438,7 +1438,7 @@ static int midi_follow(void)
                                                         /* this pass has one, and then nothing switches) */
     cand = seen & ~(1u << song.sel);
     k = 0;
-    if (cand && !((seen >> song.sel) & 1u) && (ui_rec_prefs & (PREF_MIDI_FOLLOW >> 8)) && song.g[G_ROUTE] != ROUTE_SEL &&
+    if (cand && !((seen >> song.sel) & 1u) && (ui_rec_prefs & (PREF_MIDI_FOLLOW >> 8)) && !ROUTE_HEARS_ALL(song.g[G_ROUTE]) &&
         !ui.menu && !ui.layer && !mf_busy() && (!lit || now - lit >= MF_HOLD_MS) &&
         (!sw_ms || now - sw_ms >= MF_HOLD_MS)) {
         while (!((cand >> k) & 1u))

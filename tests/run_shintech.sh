@@ -37,6 +37,10 @@ echo "== OPN2 patches in projects (FUN11) and user presets (version 6)"
 $CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/opn2_persist_test" tests/opn2_persist_test.c -lm
 "$OUT/opn2_persist_test"
 
+echo "== the Akai MPK mini IV by default (ROUT SEL, channel 10 the DRUM track, CC 24..31 relative: the macros)"
+$CC -O1 -w -Ibuild/gen -Ifirmware/src -Itests -o "$OUT/mpk_test" tests/mpk_test.c -lm
+"$OUT/mpk_test"
+
 echo "== the two OPN2 cores' cost on this host (Phase 1; the device figures come from FELUCCA_CHIPBENCH=1)"
 $CC tests/chipbench_host.c -o "$OUT/chipbench"
 "$OUT/chipbench"
