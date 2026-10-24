@@ -218,6 +218,36 @@ static void con_status(void)
             nb += op2_ch[ch].busy;
         con_kv("opn2_busy", (int32_t)nb);              /* its channels sounding a note now */
         con_kv("opn2_nchan", (int32_t)op2_nchan());    /* the channels notes may take (OP2_ONE_CORE_CAP on one core) */
+        con_puts("opn2_ch");                           /* each busy channel: its number, track, voice, keyed, restart */
+        for (ch = 0; ch < OPN2_CHANNELS; ch++)
+            if (op2_ch[ch].busy) {
+                con_putc(' ');
+                con_dec((int32_t)ch + 1);
+                con_puts(":t");
+                con_dec((int32_t)op2_ch[ch].part + 1);
+                con_putc('v');
+                con_dec(op2_ch[ch].voice);
+                con_putc(op2_ch[ch].keyed ? 'K' : '-');
+                con_putc(op2_ch[ch].restart ? 'R' : '-');
+            }
+        con_puts("\r\nopn2_voices");                   /* the selected track's active voices: index, note, gate, stage,
+                                                        * its channel (s[0]), a key on waiting (s[1]) */
+        for (ch = 0; ch < NVOICE; ch++) {
+            const voice_t *v = &TSEL->v[ch];
+            if (!v->active)
+                continue;
+            con_putc(' ');
+            con_dec((int32_t)ch);
+            con_puts(":n");
+            con_dec(v->note);
+            con_putc(v->gate ? 'G' : '-');
+            con_putc('s');
+            con_dec(v->stage);
+            con_putc('c');
+            con_dec(v->s[0]);
+            con_putc(v->s[1] ? 'W' : '-');
+        }
+        con_puts("\r\n");
     }
     con_kv("voices_given_up", (int32_t)voice_kills);
     con_kv("track", (int32_t)song.sel + 1);
