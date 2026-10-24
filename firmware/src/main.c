@@ -130,8 +130,9 @@ static void felucca_init(void)
 }
 
 /* The power-on LED sweep (1.1, hal/fm1_led_anim.h: a soft light over the keys left to right, then the buttons swell
- * and settle on the glow; ~0.70 s), started before the scan and run by it: nothing waits for it, the splash's 430 ms
- * and the first ~0.27 s of the UI go by under it (the UI's LEDs from its end, or at once on a key or a button down).
+ * and settle on the glow; ~0.70 s), started before the scan and run by it: nothing waits for it (upstream: the
+ * splash's 430 ms and the first ~0.27 s of the UI went by under it; ShinTech: the ~3 s splash outlasts it, the LEDs
+ * settled on the glow before the UI) (the UI's LEDs from its end, or at once on a key or a button down).
  * Every LEDS setting: it is no idle glow; with DIM HI / DIM LO it ends on that glow (and is drawn over that glow
  * level), with OFF / INV dark. Not with MENU > ANIM OFF (no motion: the LEDs as the UI has them at once), not after a crash (a crash record newer than the last boot saw: the crash screen's
  * reset), a hang (a WDT reset) or a failed boot (bootguard: the last one died within its first 30 s): straight to the
@@ -213,9 +214,12 @@ static void fm1_main(void)
         settings_save();
     }
     autosave_boot(boot_clean);                /* (1.2) the last session's music, under the splash */
-    for (ms = 0; ms < 400u; ms += 10u) {      /* the splash; the pot followed (MIDI IN plays under it) */
+    for (ms = 0; ms < SPL_HOLD_MS; ms += 10u) {   /* the splash (ShinTech: ~3 s, ui_draw.c); the pot followed (MIDI
+                                                   * IN plays under it) */
         fm1_delay_ms(10);
         master_poll();
+        fm1_wdt_feed();                       /* (the WDT is 8 s; fed as the main loop feeds it) */
+        usb_retry(fm1_ms);
     }
     kb_boot_hold = 0;
     lcd_fill(0, 0, 240, 240, T_BG);

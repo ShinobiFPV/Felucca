@@ -1335,6 +1335,8 @@ static void draw_columns(void)
 #define SPL_ROWS 120u                               /* a strip: two fill the screen */
 #define SPL_INK 0x9CF3u                             /* the version's grey */
 #define SPL_VER_PAD 6                               /* its inset from the top and the right edge */
+#define SPL_HOLD_MS 2970u                           /* main.c (and web/emu): its hold after the 30 ms settle, ~3 s
+                                                     * on the screen (upstream 400 ms) */
 static void draw_splash(void)
 {
     uint32_t pos = 0, y0, r, x, n, i;
