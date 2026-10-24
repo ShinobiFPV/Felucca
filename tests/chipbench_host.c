@@ -36,7 +36,7 @@ static void opn2_sample(int *lr) { h_opn2_generate(lr); }
 static void play_script(const core_t *c, int dac)
 {
     static cb_write_t w[CB_SCRIPT_MAX];
-    uint32_t i, n = cb_script_build(w);
+    uint32_t i, n = cb_script_build(w, 0);
     int lr[2];
     c->reset();
     for (i = 0; i < n; i++) {

@@ -1038,8 +1038,15 @@ static void mix_block(int32_t *out, uint32_t n)
         send_c[i] = send_d[i] = send_r[i] = mix_l[i] = mix_r[i] = 0;
     events_block(n);
     perf = perf_begin(n);                               /* the FX hold layer at work (perform.c) */
+#if FELUCCA_CHIPBENCH
+    int cb_c1 = cb_begin();                             /* ShinTech: the OPN2 benchmark; 1 = it has the second core */
+#endif
 #if FELUCCA_CPU2
     uint32_t m = C1_ON() ? C1_SPLIT() & ((1u << NPART) - 1u) : 0u;
+#if FELUCCA_CHIPBENCH
+    if (cb_c1)
+        m = 0;
+#endif
     if (m && !C1_RUN(c1_parts, m | n << 8))
         m = 0;
     c1_blocks += m != 0;

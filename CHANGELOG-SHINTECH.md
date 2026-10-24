@@ -23,3 +23,27 @@ The 16BIT groovebox fork of Felucca (OPN2, PSG and PCM8 engines). Based on upstr
 - Host benchmark, 6 channels with SSG-EG and LFO: Nuked 1,022 ns per native sample, the ymfm port 370 ns (2.8x).
   With the DAC on: 1,134 vs 340 ns (3.3x).
 - `tests/run_shintech.sh`: the fork's own host tests.
+- The ymfm port is faster and still bit-exact: register values cached at prepare, the PM phase step recomputed only
+  when the LFO value moves, a 1024-entry sine table, silent operators skipped, and clock + output fused per channel
+  (`opn2_render`). Host: 370 -> 265 ns per native sample. A channel ymfm doesn't hear (channel 6 under the DAC) must
+  not be computed, because its output updates its feedback memory; the exactness test caught that.
+- Benchmark v2/v3: duty in 32nds of each block, the script one write a block, `bench c1` (the second core),
+  `bench load 1` (typical patches). Flashed with `tools/fm1_install.py` from a Windows venv.
+
+#### Device results (FM-1, v1.6.1 base, idle 13 % CPU with the HALL reverb; % of one core at full time)
+
+| Core | Load | DAC off | DAC on |
+| --- | --- | --- | --- |
+| Nuked-OPN2 1.0.12 | worst case (6 ch, SSG-EG + AM + PM everywhere) | 694 % | 697 % |
+| ymfm port, first | worst case | 124.8 % | 119.2 % |
+| ymfm port, optimized | worst case | 96.9 % | 92.4 % |
+| ymfm port, optimized | typical (no SSG-EG/AM, vibrato on 2 ch) | 95.6 % | |
+| ymfm port, optimized, on core 2 | worst case | 91.6 % | |
+| ymfm port, optimized, on core 2 | typical | 90.9 % | |
+
+- FX sends fed with the chip: +1 % total (the chorus, delay and reverb buses always run).
+- Core 2 on this unit: stable for 2+ minutes (no bad job reads, no stalls, no late audio, wait max 542 us). Felucca's
+  dual-core split is synchronous (core 1 waits for core 2 each block), so the chip on core 2 still counts against the
+  block deadline.
+- Neither core leaves 25 % headroom for 6 FM channels: decision pending (see the Phase 1 report).
+
