@@ -4,6 +4,7 @@
  * guards; then LCD, input (TIMER5 IRQ, 10 kHz), audio (ALNK0 IRQ). */
 extern uint32_t _data_start[], _data_end[], _data_load[], _bss_start[], _bss_end[];
 extern uint32_t _pool_start[], _pool_end[], _rt_start[], _rt_end[], _rt_load[];
+extern uint32_t _ft_start[], _ft_end[], _ft_load[];   /* ShinTech: .fast_text (app.ld) */
 #if FELUCCA_CPU2
 extern uint32_t _c1_start[], _c1_end[], _c1_load[];
 #endif
@@ -356,6 +357,8 @@ void fm1_cstart(void)
         *d = *s;
     for (s = _rt_load, d = _rt_start; d < _rt_end; s++, d++)
         *d = *s;                                /* flash driver code that must run from RAM */
+    for (s = _ft_load, d = _ft_start; d < _ft_end; s++, d++)
+        *d = *s;                                /* ShinTech: hot DSP code run from RAM (app.ld .fast_text) */
 #if FELUCCA_CPU2
     for (s = _c1_load, d = _c1_start; d < _c1_end; s++, d++)
         *d = *s;                                /* the second core's waiting loop (hal/fm1_cpu1.h) */

@@ -15,13 +15,6 @@ void h_opn2_generate(int *lr)
     lr[0] = o[0];
     lr[1] = o[1];
 }
-void h_opn2_ch(unsigned ch, int *lr)   /* the last clocked sample's channel output (call after h_opn2_generate) */
-{
-    int32_t o[2];
-    opn2_ch_output(&host_opn2, ch, o);
-    lr[0] = o[0];
-    lr[1] = o[1];
-}
 
 static ym3438_t host_nuked;
 void h_nuked_reset(void)

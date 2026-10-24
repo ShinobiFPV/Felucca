@@ -25,6 +25,7 @@
  * native sample's time); cpu_pct = the first core's whole ISR as measured now (MENU > SYSTEM > INFO). */
 #if FELUCCA_CHIPBENCH
 #define OPN2_POOL __attribute__((section(".pool")))
+#define OPN2_FAST __attribute__((section(".fast_text")))
 #include "chips/opn2.c"
 #include "chips/ym3438.c"
 #include "chipbench_script.h"
@@ -70,7 +71,7 @@ static void cb_sample(int32_t *l, int32_t *r)
         *r = sr << 4;
     } else {
         int32_t o[2];
-        opn2_generate(&cb_opn2, o);
+        OPN2_FAR(opn2_generate)(&cb_opn2, o);   /* (in RAM: .fast_text) */
         *l = o[0];
         *r = o[1];
     }
