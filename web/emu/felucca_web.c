@@ -217,6 +217,7 @@ static fm1_crash_t fm1_crash;                     /* (none: main.c boot_leds run
 static struct { uint8_t p3_rst, wdt_con; uint32_t rst_src; } fm1_boot;
 uint32_t _data_start[1], _data_end[1], _data_load[1], _bss_start[1], _bss_end[1];
 uint32_t _pool_start[1], _pool_end[1], _rt_start[1], _rt_end[1], _rt_load[1];
+uint32_t _ft_start[1], _ft_end[1], _ft_load[1];   /* (ShinTech: .fast_text, app.ld; nothing to copy here) */
 static uint32_t web_master_adc = 700;   /* MASTER, 0..1023 as the ADC reads it */
 enum { FM1_ADC_BATT = 3, FM1_ADC_MASTER = 4 };
 static int32_t fm1_adc_read(uint32_t ch) { return ch == FM1_ADC_MASTER ? (int32_t)web_master_adc : 620; }
@@ -487,6 +488,30 @@ EXPORT void web_test_heavy(void)
         n[k++] = i % 2u ? 42 : 46;
         put_step(&trk[3], i, k, n, ST_NOTE, 0);
     }
+    ui.force = 1;
+}
+
+/* ShinTech: an OPN2 song (emu_test.mjs): T1 F1 SYNTH BASS, T2 F18 WARM PAD, three-note chords on every step over the
+ * shared chip (CHIP LIMIT at six), T4 the drums as the heavy song's */
+EXPORT void web_test_opn2(void)
+{
+    static const uint8_t CH[4][3] = {{48, 55, 60}, {45, 52, 57}, {41, 48, 53}, {43, 50, 55}};
+    uint32_t p, i;
+    web_test_heavy();
+    for (p = 0; p < 2u; p++) {
+        track_t *t = &trk[p];
+        host_preset(t, ENGI_OPN2, p ? 17u : 0u);
+        t->p[P_VOICE] = V_POLY;
+        for (i = 0; i < 16u; i++) {
+            uint8_t n[3], k;
+            for (k = 0; k < 3u; k++)
+                n[k] = (uint8_t)(CH[i / 4u][k] + 12u * p - (p ? 0u : 12u));
+            put_step(t, i, 3, n, ST_NOTE, 0);
+        }
+    }
+    host_preset(&trk[2], 0, 0);
+    for (i = 0; i < 16u; i++)
+        put_step(&trk[2], i, 0, 0, ST_NOTE, 0);   /* (T3 silent: the chip's two tracks and the drums) */
     ui.force = 1;
 }
 

@@ -18,6 +18,7 @@ const bytes = fs.readFileSync(wasmPath);
 const B = { FX: 0, SCL: 1, ENV: 2, LFO: 3, EDIT: 4, GLO: 5, HOME: 6, SAVE: 7, ARP: 8, SEQ: 9, PLAY: 10, REC: 11, OCTDN: 12, OCTUP: 13 };
 const EN = { SELECT: 0, ALGO: 1, PRESETS: 2, K1: 3, K2: 4, K3: 5, K4: 6 };
 let fails = 0;
+const SPLASH_MORE = 2570;   // ShinTech: the ~3 s splash (ui_draw.c SPL_HOLD_MS), 2570 ms past upstream's 430
 const check = (what, ok) => { console.log(`emu: ${what.padEnd(76)} ${ok ? "ok" : "FAIL"}`); if (!ok) fails++; };
 
 async function device(saved) {
@@ -67,6 +68,7 @@ const splash = colours(a.screen());
 }
 a.render(800);
 check("  over by 1 s (~0.70 s)", a.ex.web_anim_levels() === 0);
+a.render(SPLASH_MORE);
 const home = a.screen();
 check(`boots: the splash, then HOME (${colours(home)} colours), the HOME LED lit`,
       splash > 1 && colours(home) > 4 && (a.ex.web_lit_buttons() >> B.HOME & 1) === 1);
@@ -131,9 +133,9 @@ check(`SAVE, OCT+, OCT+: user preset 1 written (${Object.keys(saved).length} sec
 const kept = JSON.parse(JSON.stringify(Object.fromEntries(     // as the page keeps them (base64 in localStorage)
   Object.entries(saved).map(([k, v]) => [k, Buffer.from(v).toString("base64")]))));
 const b = await device(Object.fromEntries(Object.entries(kept).map(([k, v]) => [k, new Uint8Array(Buffer.from(v, "base64"))])));
-b.render(600);
+b.render(600 + SPLASH_MORE);
 const c = await device(null);
-c.render(600);
+c.render(600 + SPLASH_MORE);
 check("a fresh instance with the kept sectors has it; one without does not",
       b.ex.web_test_user_preset(0) === 1 && c.ex.web_test_user_preset(0) === 0);
 
@@ -151,8 +153,8 @@ check("a fresh instance with the kept sectors has it; one without does not",
         ["bin", "twos", "sign"].every((m) => k(MASTER_CC, 0, m).master === 0 && k(MASTER_CC, 127, m).master === 1023) &&
         k(20, 65, "bin").role === EN.SELECT && k(26, 65, "bin").role === EN.K4 && k(19, 65, "bin") === null);
   const t = await device(null), u = await device(null);             // u: left alone
-  t.render(1200);
-  u.render(1200);
+  t.render(1200 + SPLASH_MORE);
+  u.render(1200 + SPLASH_MORE);
   t.render(40);
   t.turn(EN.PRESETS, 3);
   t.render(300);
@@ -160,7 +162,7 @@ check("a fresh instance with the kept sectors has it; one without does not",
   const ts = t.screen(), us = u.screen();
   for (const [mode, vs] of [["abs", [64, 65, 66, 67]], ["bin", [65, 65, 65]], ["twos", [1, 1, 1]], ["sign", [1, 1, 1]]]) {
     const m = await device(null), knob = [];                   // a controller's knob: three detents
-    m.render(1200);
+    m.render(1200 + SPLASH_MORE);
     for (const v of vs) {
       const r = midiKnob(knob, cc, v, mode);
       if (r.n) m.ex.web_enc(r.role, r.n);
@@ -177,7 +179,7 @@ check("a fresh instance with the kept sectors has it; one without does not",
 // ---- deterministic: the same gestures, the same samples
 async function song() {
   const d = await device(null);
-  d.render(500);
+  d.render(500 + SPLASH_MORE);
   d.ex.web_test_heavy();
   d.tap(B.PLAY);
   d.rec = true;
@@ -204,5 +206,27 @@ for (let i = 0; i < 3; i++) {
 }
 const ratio = best / 1000, max = +(process.env.BENCH_MAX || 0.5);
 check(`1 s of the heavy song (FM6 PHYS GRAIN chords + DRUM) in ${best.toFixed(1)} ms: ${(ratio * 100).toFixed(1)} % of real time`, ratio < max);
+
+// ---- ShinTech: OPN2 (the shared chip) in the browser: two OPN2 tracks of chords and the drums play, the same twice
+async function opn2Song() {
+  const d = await device(null);
+  d.render(500 + SPLASH_MORE);
+  d.ex.web_test_opn2();
+  d.tap(B.PLAY);
+  d.rec = true;
+  d.render(2000);
+  return d;
+}
+const o1 = await opn2Song(), o2 = await opn2Song();
+check(`OPN2: T1 BASS + T2 PAD chords (the shared chip) and the drums play (peak ${o1.peak.toFixed(3)}), twice the same samples`,
+      o1.peak > 0.05 && o1.peak < 1.0 && o1.sig === o2.sig);
+best = Infinity;
+o1.rec = false;
+for (let i = 0; i < 3; i++) {
+  const t0 = performance.now();
+  o1.render(1000);
+  best = Math.min(best, performance.now() - t0);
+}
+check(`OPN2: 1 s of that song in ${best.toFixed(1)} ms: ${(best / 10).toFixed(1)} % of real time`, best / 1000 < max);
 console.log(fails ? `emu: ${fails} FAILED` : "emu: all ok");
 process.exit(fails ? 1 : 0);

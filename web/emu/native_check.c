@@ -28,7 +28,7 @@ int main(int argc, char **argv)
         return 2;
     web_nor_erase();
     web_boot();
-    render(500);
+    render(500 + 2570);                            /* (ShinTech: the ~3 s splash, 2570 ms past upstream's; as emu_test.mjs) */
     web_test_heavy();
     web_buttons(1u << B_PLAY);
     render(60);

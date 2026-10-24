@@ -98,7 +98,7 @@
   engine must then cap the sounding FM channels (Phase 2).
 
 
-### Phase 2: the OPN2 engine (in progress)
+### Phase 2: the OPN2 engine
 
 - Engine 14, OPN2 (`firmware/src/eng_opn2.c`): one shared chip, 6 channels owned by the voices of the OPN2 tracks
   (CHIP LIMIT steals the oldest released, else the oldest held), POLY / MONO / LEGATO, RATIO, CH3 mode, velocity to
@@ -121,6 +121,22 @@
   (SLOT OWN), one undo per gesture (undo now keeps the OPN2 patch). The algorithm chart (the YM2612's eight, with
   the operator or the macro turned in the accent) on those pages and on EDIT 1 / 2; the envelope drawn in dB with
   the other three operators behind it. SSG-EG and CH3 offsets: the web editor's.
+- Patch files: `.tfi`, `.vgi`, `.dmp` (DefleMask v2..11, OPN2 / Genesis systems) and `.fui` (Furnace "FINS" FM) import
+  into the 96-byte patch, and `.tfi` exports, in the web app (`Felucca-WebApp` `app/src/opn2.js`, its 18 unit tests
+  `test_opn2.mjs`); the editor's page that uses them is Phase 5's.
+- The browser emulator (`web/emu`) builds with OPN2 and passes `emu_test.mjs`, now with an OPN2 song (two OPN2
+  tracks of chords on the shared chip and the drums: it sounds, the same samples twice, 2.0 % of real time on the
+  build PC) and the boot waits for the ~3 s splash; the native build (`native_check.c`) still equals it bit for bit.
+- Credits: MENU > ABOUT / CREDITS lists Genesynth, ymfm (BSD-3-Clause) and the splash's DejaVu lettering first;
+  `CREDITS.md` and `LICENSING.md` too.
+
+#### Known limitations (Phase 2)
+
+- **Mono chip channels:** each channel's L / R output bits (register B4) are read as one: a channel heard on L, R or
+  both sounds in the middle, and the track's PAN places it. Per-channel hard panning as on the chip is not modelled.
+- **CHIP LIMIT is always on:** a seventh note takes a channel (the oldest released, else the oldest held). There is
+  no "CHIP LIMIT OFF" (more than six notes would need a second chip: twice the CPU, over the budget).
+- The one-core cap (3 channels) applies whenever the second core is not answering.
 
 #### Device test (FM-1, 2ND CORE ON, HALL reverb; `tools/shintech/fm1midi.py` + console `status`)
 

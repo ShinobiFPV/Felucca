@@ -36,6 +36,19 @@ static void draw_about_qr(int32_t x, int32_t y)
 enum { MC_TEXT, MC_TITLE, MC_URL };
 typedef struct { const char *text; uint8_t kind; } menu_credit_t;
 static const menu_credit_t MENU_CREDITS[] = {
+    {"GENESYNTH", MC_TITLE},                /* ShinTech: the fork's own, then what it adds */
+    {"William Kew, ShinTech Electronics", MC_TEXT},
+    {"16BIT engines OPN2, PSG, PCM8: GPL-3.0", MC_TEXT},
+    {"", MC_TEXT},
+    {"YMFM", MC_TITLE},
+    {"Aaron Giles / BSD-3-Clause", MC_TEXT},
+    {"The OPN2 core, ported to C", MC_TEXT},
+    {"https://github.com/aaronsgiles/ymfm", MC_URL},
+    {"", MC_TEXT},
+    {"DEJAVU SANS", MC_TITLE},
+    {"The splash's lettering / Bitstream Vera licence", MC_TEXT},
+    {"https://dejavu-fonts.github.io", MC_URL},
+    {"", MC_TEXT},
     {"H\xFCgelton Instruments", MC_TITLE},  /* Felucca's own: above; these are ours too */
     {"Leo Kuroshita", MC_TEXT},
     {"The PHASE and DRUM engines: GPL-3.0", MC_TEXT},
