@@ -3,7 +3,9 @@
 // The OPN2 port (firmware/src/chips/opn2.c) against ymfm itself, sample for sample. Needs a ymfm checkout:
 //   YMFM=~/src/ymfm tests/run_shintech.sh       (without YMFM the test is skipped)
 // Random register traffic on both ports (patches, key on / off, LFO, SSG-EG, channel 3's special mode, the DAC,
-// stray addresses), several seeds; every sample of ym2612::generate must match opn2_generate exactly.
+// stray addresses), several seeds; every sample of ym2612::generate must match opn2_generate exactly, also when the
+// port renders blocks of 1..40 samples between the writes (opn2_generate_n, as the engine does), and when it renders
+// them by channel, channels 4..6 before 1..3 (opn2_begin_n / opn2_channels_n, as two cores do).
 #include <cstdio>
 #include <cstdint>
 #include "ymfm_opn.h"
@@ -12,6 +14,8 @@ extern "C" {
 void h_opn2_reset(void);
 void h_opn2_write(unsigned port, unsigned data);
 void h_opn2_generate(int *lr);
+void h_opn2_generate_n(int *lr, unsigned n);
+void h_opn2_generate_split(int *lr, unsigned n);
 }
 
 namespace {
@@ -87,17 +91,28 @@ int main()
             unsigned nw = rnd() % 64 == 0 ? 1 + rnd() % 40 : (rnd() % 8 == 0);   // bursts and single writes
             for (unsigned w = 0; w < nw; w++)
                 random_write(ref);
-            ymfm::ym2612::output_data out;
-            int lr[2];
-            ref.generate(&out, 1);
-            h_opn2_generate(lr);
-            if (out.data[0] != lr[0] || out.data[1] != lr[1]) {
-                if (!bad++)
-                    first_bad = s;
+            unsigned m = rnd() % 4 == 0 ? 1 + rnd() % 40 : 1, k;   // a block, or one sample
+            if (s + m > NSAMP)
+                m = NSAMP - s;
+            int lr[2 * 40];
+            if (m == 1)
+                h_opn2_generate(lr);
+            else if (rnd() & 1)
+                h_opn2_generate_n(lr, m);
+            else
+                h_opn2_generate_split(lr, m);      // by channel, as two cores render it
+            for (k = 0; k < m; k++) {
+                ymfm::ym2612::output_data out;
+                ref.generate(&out, 1);
+                if (out.data[0] != lr[2 * k] || out.data[1] != lr[2 * k + 1]) {
+                    if (!bad++)
+                        first_bad = s + k;
+                }
+                int dev = out.data[0] - SILENT < 0 ? SILENT - out.data[0] : out.data[0] - SILENT;
+                peak = dev > peak ? dev : peak;
+                loud += dev > 256;
             }
-            int dev = out.data[0] - SILENT < 0 ? SILENT - out.data[0] : out.data[0] - SILENT;
-            peak = dev > peak ? dev : peak;
-            loud += dev > 256;
+            s += m - 1;
         }
         printf("opn2 vs ymfm: seed %08X  %u samples, %u differ (first at %u), %.0f %% sounding, peak %d  %s\n", seed, NSAMP,
                bad, bad ? first_bad : 0u, 100.0 * loud / NSAMP, peak, bad ? "FAIL" : "ok");

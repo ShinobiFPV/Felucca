@@ -45,5 +45,35 @@ The 16BIT groovebox fork of Felucca (OPN2, PSG and PCM8 engines). Based on upstr
 - Core 2 on this unit: stable for 2+ minutes (no bad job reads, no stalls, no late audio, wait max 542 us). Felucca's
   dual-core split is synchronous (core 1 waits for core 2 each block), so the chip on core 2 still counts against the
   block deadline.
-- Neither core leaves 25 % headroom for 6 FM channels: decision pending (see the Phase 1 report).
+- Neither core left 25 % headroom for 6 FM channels at this point. Decision: optimize the ymfm port further (still
+  bit-exact) and use the second core too.
+
+#### Phase 1, round 2: the port on two cores
+- `bench cal` measured the CPU (~220-240 MHz, about one simple instruction a cycle). A dependent load costs 4-6
+  cycles, the pool is ~25 % slower than `.bss`, and RAM code is no faster than warm XIP.
+- The per-sample calls and their 12-register saves cost ~19 % of a core with no note playing. The port now renders
+  in blocks (`opn2_render_n`, `opn2_generate_n`), checks `prepare` inline, and inlines the envelope / SSG-EG / LFO.
+- `opn2_t` now holds the operators first and `reg[]` last (short load offsets: -8 %), each channel's operators
+  together, a 64-byte op struct, and a precomputed `idle` flag.
+- Channel-major blocks (`opn2_block_begin` + `opn2_block_channels`): a block's global steps first, then each channel
+  over the block. So channels can render apart: `opn2_begin_n` / `opn2_channels_n` / `opn2_mix_n` split the six
+  channels across the two cores (4..6 on core 2, started before the parts; 1..3 on core 1 after them).
+- Every step stays bit-exact against ymfm. The test now also renders random block sizes and the two-core split.
+- `.fast_text` (app.ld, build.py, main.c): hot DSP code copied to RAM at boot; it may call into XIP (`OPN2_FAR`).
+  `fm1_guard.h`'s PC limit now ends at `_ft_end`. Its first version missed that, and the FM-1 crashed; a second
+  crash within 30 s of boot (the console script restarting the benchmark) sent it to UBOOT, and a power cycle brought
+  it back. The console scripts (`tools/shintech/`) now stop at the first reboot or lost port.
+- Tried and dropped: per-operator block loops (slower here: the state stays in memory, the arrays add traffic).
+
+| ymfm port, % of one core at full time | worst case | typical |
+| --- | --- | --- |
+| core 1 alone (round 1 best) | 93.6 % | 86.7 % |
+| core 1 alone (channel-major blocks) | 84.1 % | 80.2 % |
+| **split, 3 + 3 channels: the whole ISR (idle 13 % included)** | **54 %** | **50 %** |
+
+- Split, worst case at full time: core 1's part 43.6 %, core 2's 35.8 %. A 60 s soak: no late buffer, no core-2
+  fault, the longest half 1,997 us of 2,902 (69 %).
+- **Choice: the ymfm port (BSD-3-Clause, in C), split across both cores. Nuked-OPN2 (694 %) is out.** Without the
+  second core (MENU > SYSTEM > 2ND CORE OFF, or a unit that cannot run it) the port alone costs ~84 % worst case; the
+  engine must then cap the sounding FM channels (Phase 2).
 

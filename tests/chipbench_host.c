@@ -31,7 +31,7 @@ typedef struct {
     void (*sample)(int *);
 } core_t;
 
-static void opn2_sample(int *lr) { h_opn2_generate(lr); }
+static void port_sample(int *lr) { h_opn2_generate(lr); }
 
 static void play_script(const core_t *c, int dac)
 {
@@ -72,7 +72,7 @@ int main(void)
 {
     static const core_t CORES[] = {
         {"Nuked-OPN2", h_nuked_reset, h_nuked_write, h_nuked_sample},
-        {"ymfm port ", h_opn2_reset, h_opn2_write, opn2_sample},
+        {"ymfm port ", h_opn2_reset, h_opn2_write, port_sample},
     };
     uint32_t k;
     int dac;

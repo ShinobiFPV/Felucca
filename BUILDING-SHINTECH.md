@@ -121,3 +121,21 @@ Then open <http://localhost:8000/webapp/installer/> in Windows Chrome. Web MIDI 
 **Before installing anything:** back up your projects and user presets with the stock Felucca build (the web
 editor's backup), and keep the official firmware file at hand: the installer's *Return to official V15* takes you
 back. Recovery from a failed install needs [FM-1-transporter](https://github.com/kurogedelic/FM-1-transporter).
+
+## 7. Flashing from the command line, and the device benchmark
+
+Felucca's CLI installer runs from Windows Python (the FM-1's USB MIDI ports are "Felucca 0" / "Felucca 1"):
+
+```powershell
+python -m venv $env:TEMP\fm1venv
+& $env:TEMP\fm1venv\Scripts\pip install mido python-rtmidi
+& $env:TEMP\fm1venv\Scripts\python tools\fm1_install.py --info
+& $env:TEMP\fm1venv\Scripts\python tools\fm1_install.py build\shintech\felucca-chipbench.fwsc --yes
+```
+
+The OPN2 core benchmark (Phase 1) is a build of its own (`FELUCCA_CHIPBENCH=1 ./build.sh`). It is driven over the USB
+serial console (COM4 here) by `tools/shintech/*.ps1` (`fm1con.ps1` sends commands; `splitm.ps1` measures the two-core
+split; the `bench` command is described in `firmware/src/chipbench.c`). After a flash, wait 35 s before starting it:
+two crashes in the first 30 s of a boot send the FM-1 to UBOOT (USB mass storage, 4C4A:8057), and a power cycle
+brings it back.
+

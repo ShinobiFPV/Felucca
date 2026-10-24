@@ -10,9 +10,10 @@
  *
  *   opn2_reset(c)                   power-on state (ymfm: construct + reset)
  *   opn2_write(c, port, data)       the chip's four ports: 0 address, 1 data, 2 address (upper), 3 data (upper)
- *   opn2_render(c, out, nout)       one sample at the native rate (clock / 144: 53,267 Hz at 7.67 MHz): every channel
- *                                   clocked, channels 0..nout-1 heard (out[ch] its 9-bit L and R, 0 muted or silent)
- *   opn2_generate(c, lr)            ymfm's ym2612::generate: the six channels with the DAC discontinuity, x 128 / 6
+ *   opn2_render_n(c, out, n, nout)  n samples at the native rate (clock / 144: 53,267 Hz at 7.67 MHz): every channel
+ *                                   clocked, channels 0..nout-1 heard (out[s][ch] its 9-bit L and R, 0 muted or silent)
+ *   opn2_generate_n(c, lr, n)       ymfm's ym2612::generate, n samples: the six channels with the DAC discontinuity
+ *   opn2_render, opn2_generate      the same, one sample
  *
  * Speed (the FM-1 renders it in the audio ISR): what ymfm reads from the registers every sample is cached when the
  * channels are prepared (after any write, as ymfm prepares them), the PM LFO's phase steps are recomputed only when its
@@ -34,7 +35,8 @@
 /* (the firmware builds at -Os, which would leave these out of line; code in RAM cannot reach a call into XIP) */
 #define OPN2_AI __attribute__((always_inline)) inline
 /* a call across RAM and XIP: through a pointer the compiler cannot see through (as hal/fm1_flash.h FL_FAR). Callers in
- * XIP call the OPN2_FAST entries (opn2_render, opn2_generate) as OPN2_FAR(opn2_render)(...) */
+ * XIP call the OPN2_FAST entries (opn2_render_n, opn2_generate_n) as OPN2_FAR(opn2_render_n)(...); the one-sample
+ * opn2_render and opn2_generate are in XIP and do it themselves */
 static OPN2_AI void *opn2_far(void *p) { void *volatile q = p; return q; }
 #define OPN2_FAR(fn) ((__typeof__(&fn))opn2_far((void *)&fn))
 
@@ -45,21 +47,26 @@ static OPN2_AI void *opn2_far(void *p) { void *volatile q = p; return q; }
 #define OPN2_PHASE_DYNAMIC 1u     /* opdata_cache::PHASE_STEP_DYNAMIC: recompute each sample (PM LFO) */
 enum { OPN2_EG_ATTACK = 1, OPN2_EG_DECAY = 2, OPN2_EG_SUSTAIN = 3, OPN2_EG_RELEASE = 4, OPN2_EG_STATES = 6 };
 
-typedef struct {
+typedef struct {                  /* (64 bytes, what the render reads first: one shift to index, short offsets) */
     uint32_t phase;               /* 10.10 */
+    uint32_t phase_step;          /* opdata_cache's, or PHASE_DYNAMIC */
+    uint32_t dyn_step;            /* PHASE_DYNAMIC: the step for dyn_pm */
+    int32_t dyn_pm;               /* .. the LFO PM value it was made for */
     uint16_t env_att;             /* 4.6 attenuation */
-    uint8_t env_state, ssg_inv, key_state, keyon_live;
-    uint16_t opoffs, choffs;      /* register offsets */
-    /* opdata_cache */
-    uint32_t phase_step, block_freq, multiple, total_level, eg_sustain;
-    int32_t detune;
-    uint8_t eg_rate[OPN2_EG_STATES];
-    uint8_t ssg_en, ssg_mode, am_en;   /* the registers, as cached at the last prepare */
-    uint8_t quiet;                /* env_att > EG_QUIET: compute_volume's early out */
     uint16_t att4;                /* envelope_attenuation(am) << 2, as last made (opn2_att_update) */
-    int32_t dyn_pm;               /* PHASE_DYNAMIC: the LFO PM value dyn_step was made for */
-    uint32_t dyn_step;
+    uint8_t env_state;
+    uint8_t quiet;                /* env_att > EG_QUIET: compute_volume's early out */
+    uint8_t idle;                 /* released, at full attenuation, no SSG-EG: silent for good, not clocked */
+    uint8_t ssg_en, ssg_inv, ssg_mode, am_en;   /* (ssg_en, ssg_mode, am_en: the registers at the last prepare) */
+    uint8_t key_state, keyon_live;
+    uint8_t eg_rate[OPN2_EG_STATES];
+    uint8_t pad0[3];
+    uint16_t opoffs, choffs;      /* register offsets */
+    /* the rest of opdata_cache */
+    uint32_t block_freq, multiple, total_level, eg_sustain;
+    int32_t detune;
 } opn2_op_t;
+_Static_assert(sizeof(opn2_op_t) == 64u, "opn2_op_t: 64 bytes (a shift to index)");
 
 typedef struct {
     int16_t fb[2], fb_in;         /* operator 1's feedback memory; fb_in: set by the output */
@@ -70,8 +77,8 @@ typedef struct {
 } opn2_ch_t;
 
 typedef struct {
-    uint8_t reg[0x200];
-    opn2_op_t op[OPN2_OPERATORS];
+    opn2_op_t op[OPN2_OPERATORS];     /* (first, and reg[] last: every field the render reads is a short offset from its
+                                       * pointer; the target's loads take a short offset in one instruction) */
     opn2_ch_t ch[OPN2_CHANNELS];
     uint32_t env_counter;         /* low 2 bits: sub-counter */
     uint32_t lfo_counter;
@@ -80,12 +87,15 @@ typedef struct {
     uint8_t active, modified;     /* channel masks */
     uint8_t dac_en;
     uint16_t addr, dac_data;      /* address register (bit 8: the upper port), 9-bit DAC */
+    uint8_t reg[0x200];
 } opn2_t;
 
 /* operators of each channel, in ymfm's order: carrier 1, carrier 2, modulator 1, modulator 2 as the register map puts
- * them, i.e. OP1, OP3, OP2, OP4 by slot (opn_registers_base<true>::operator_map) */
+ * them, i.e. OP1, OP3, OP2, OP4 by slot (opn_registers_base<true>::operator_map): ymfm's operator numbers. The port
+ * stores channel ch's k-th as op[ch * 4 + k] (OPN2_OP), its register offset from its ymfm number */
 static const uint8_t OPN2_MAP[OPN2_CHANNELS][4] = {
     {0, 6, 3, 9}, {1, 7, 4, 10}, {2, 8, 5, 11}, {12, 18, 15, 21}, {13, 19, 16, 22}, {14, 20, 17, 23}};
+#define OPN2_OP(c, ch, k) (&(c)->op[(ch) * 4u + (k)])
 
 static OPN2_AI uint32_t opn2_bf(uint32_t v, uint32_t start, uint32_t len) { return (v >> start) & ((1u << len) - 1u); }
 #define OPN2_RB(c, off, s, l, x) opn2_bf((c)->reg[(off) + (x)], (s), (l))
@@ -268,7 +278,7 @@ static void opn2_cache(const opn2_t *c, opn2_op_t *o)   /* cache_operator_data *
     o->eg_rate[OPN2_EG_RELEASE] = (uint8_t)opn2_eff_rate(OPN2_RB(c, 0x80, 0, 4, opoffs) * 4u + 2u, ksrval);
 }
 
-static OPN2_FAST int32_t opn2_clock_lfo(opn2_t *c)   /* clock_noise_and_lfo: the raw PM value */
+static OPN2_AI int32_t opn2_clock_lfo(opn2_t *c)   /* clock_noise_and_lfo: the raw PM value */
 {
     uint32_t subcount;
     int32_t pm;
@@ -344,7 +354,7 @@ static int opn2_op_prepare(const opn2_t *c, opn2_op_t *o)
     return o->env_state != OPN2_EG_RELEASE || o->env_att < OPN2_EG_QUIET;
 }
 
-static OPN2_FAST void opn2_clock_ssg(opn2_op_t *o)   /* clock_ssg_eg_state (SSG-EG on) */
+static OPN2_AI void opn2_clock_ssg(opn2_op_t *o)   /* clock_ssg_eg_state (SSG-EG on) */
 {
     uint32_t mode;
     if (!opn2_bf(o->env_att, 9, 1))
@@ -365,7 +375,7 @@ static OPN2_FAST void opn2_clock_ssg(opn2_op_t *o)   /* clock_ssg_eg_state (SSG-
         o->env_att = 0x3FF;
 }
 
-static OPN2_FAST void opn2_clock_envelope(opn2_op_t *o, uint32_t env_counter)
+static OPN2_AI void opn2_clock_envelope(opn2_op_t *o, uint32_t env_counter)
 {
     uint32_t rate, rate_shift, relevant, inc;
     if (o->env_state == OPN2_EG_ATTACK && o->env_att == 0)
@@ -424,8 +434,7 @@ static OPN2_AI int32_t opn2_vol(const opn2_op_t *o, uint32_t phase)   /* compute
 #define OPN2_CL(x) ((x) < -257 ? -257 : (x) > 256 ? 256 : (x))
 static OPN2_AI void opn2_out(opn2_t *c, opn2_ch_t *h, uint32_t ch, int32_t *lr)
 {
-    const opn2_op_t *o1 = &c->op[OPN2_MAP[ch][0]], *o2 = &c->op[OPN2_MAP[ch][1]];
-    const opn2_op_t *o3 = &c->op[OPN2_MAP[ch][2]], *o4 = &c->op[OPN2_MAP[ch][3]];
+    const opn2_op_t *o1 = OPN2_OP(c, ch, 0), *o2 = o1 + 1, *o3 = o1 + 2, *o4 = o1 + 3;
     int32_t m = 0, v1, v2, v3, r;
     uint32_t p2, p3, p4;
     if (h->fb_shift)
@@ -525,7 +534,7 @@ static void opn2_fm_write(opn2_t *c, uint32_t index, uint8_t data)   /* fm_engin
         ch += opn2_bf(data, 2, 1) * 3u;
         opmask = opn2_bf(data, 4, 4);
         for (k = 0; k < 4u; k++) {
-            opn2_op_t *o = &c->op[OPN2_MAP[ch][k]];
+            opn2_op_t *o = OPN2_OP(c, ch, k);
             o->keyon_live = (uint8_t)((o->keyon_live & ~1u) | opn2_bf(opmask, k, 1));
         }
     }
@@ -541,15 +550,16 @@ static void opn2_reset(opn2_t *c)
     c->reg[0x1B4] = c->reg[0x1B5] = c->reg[0x1B6] = 0xC0;
     for (ch = 0; ch < OPN2_CHANNELS; ch++) {
         c->ch[ch].choffs = (uint16_t)((ch % 3u) + 0x100u * (ch / 3u));
-        for (k = 0; k < 4u; k++)
-            c->op[OPN2_MAP[ch][k]].choffs = c->ch[ch].choffs;
-    }
-    for (i = 0; i < OPN2_OPERATORS; i++) {
-        c->op[i].opoffs = (uint16_t)((i % 12u) + (i % 12u) / 3u + 0x100u * (i / 12u));
-        c->op[i].env_att = 0x3FF;
-        c->op[i].env_state = OPN2_EG_RELEASE;
-        c->op[i].quiet = 1;
-        c->op[i].att4 = 0x3FF << 2;
+        for (k = 0; k < 4u; k++) {
+            opn2_op_t *o = OPN2_OP(c, ch, k);
+            i = OPN2_MAP[ch][k];                            /* ymfm's operator number: its register offset */
+            o->choffs = c->ch[ch].choffs;
+            o->opoffs = (uint16_t)((i % 12u) + (i % 12u) / 3u + 0x100u * (i / 12u));
+            o->env_att = 0x3FF;
+            o->env_state = OPN2_EG_RELEASE;
+            o->quiet = o->idle = 1;
+            o->att4 = 0x3FF << 2;
+        }
     }
     c->active = c->modified = OPN2_ALL_CHANNELS;
     opn2_fm_write(c, 0x27, 0);
@@ -596,8 +606,11 @@ static int opn2_prepare(opn2_t *c)
     for (ch = 0; ch < OPN2_CHANNELS; ch++) {
         int on = 0;
         opn2_ch_cache(c, &c->ch[ch]);
-        for (k = 0; k < 4u; k++)
-            on |= opn2_op_prepare(c, &c->op[OPN2_MAP[ch][k]]);
+        for (k = 0; k < 4u; k++) {
+            opn2_op_t *o = OPN2_OP(c, ch, k);
+            on |= opn2_op_prepare(c, o);
+            o->idle = o->env_state == OPN2_EG_RELEASE && o->env_att == 0x3FF && !o->ssg_en;
+        }
         if (on)
             c->active |= (uint8_t)(1u << ch);
     }
@@ -606,81 +619,196 @@ static int opn2_prepare(opn2_t *c)
     return 1;
 }
 
-/* one sample: fm_engine_base::clock(ALL_CHANNELS), then output(.., 5, 256, 1 << ch) of channels 0..nout-1, each
- * channel clocked and heard before the next (a channel's output reads only its own operators, this sample's AM value
- * and its registers, so the order changes nothing). out[ch][0] L, out[ch][1] R; channels from nout on are clocked,
- * not heard, and get 0: an output updates its channel's feedback memory, so a channel ymfm does not hear (channel 6
- * under the DAC) must not be computed either */
-static OPN2_FAST void opn2_render(opn2_t *c, int32_t (*out)[2], uint32_t nout)
+/* n samples: fm_engine_base::clock(ALL_CHANNELS) then output(.., 5, 256, 1 << ch) of channels 0..nout-1, each sample;
+ * out[s][ch][0] L, [1] R. Channels from nout on are clocked, not heard, and get 0: an output updates its channel's
+ * feedback memory, so a channel ymfm does not hear (channel 6 under the DAC) must not be computed either.
+ *
+ * In blocks of up to OPN2_BLK samples, channel by channel: first the block's prepare (if one is due, before its first
+ * sample) and its global steps (the envelope counter, the LFO's PM and AM values: opn2_block_begin), then each channel
+ * over the whole block, its four operators clocked and its output made sample by sample (opn2_block_channels). The
+ * same samples as ymfm's order: a channel's operators read only their own state and those global values, its output
+ * only its operators and its feedback; and a block never holds a write (the caller writes between calls) or a prepare
+ * after its first sample (a block ends before the 4096-sample sweep, which can change which channels are active). So
+ * any channels can be rendered apart, on another core too, once the block has begun. */
+#define OPN2_BLK 16u
+static OPN2_AI int32_t opn2_dac_disc(int32_t v) { return v < 0 ? v - 3 : v + 4; }   /* the YM2612's DAC discontinuity */
+typedef struct {                       /* a block's global steps (opn2_block_begin), read by every channel */
+    uint32_t m, nout, refresh;
+    uint32_t envc[OPN2_BLK];
+    int32_t pm[OPN2_BLK];
+    uint8_t amv[OPN2_BLK], am_mv[OPN2_BLK];
+} opn2_blk_t;
+
+static OPN2_AI void opn2_block_begin(opn2_t *c, opn2_blk_t *b, uint32_t m, uint32_t nout)
 {
-    uint32_t ch, k, refresh, tick, am_moved, env;
-    int32_t pm;
-    refresh = (uint32_t)OPN2_FAR(opn2_prepare)(c);   /* (cold code, in XIP) */
-    if (opn2_bf(++c->env_counter, 0, 2) == 3)       /* EG_CLOCK_DIVIDER 3 */
-        c->env_counter += 1;
-    env = c->env_counter;
-    tick = opn2_bf(env, 0, 2) == 0;                 /* an envelope clock this sample */
-    pm = opn2_clock_lfo(c);
-    am_moved = c->lfo_am != c->lfo_am_prev;
-    c->lfo_am_prev = c->lfo_am;
-    for (ch = 0; ch < OPN2_CHANNELS; ch++) {
-        opn2_ch_t *h = &c->ch[ch];
-        uint32_t am = ((uint32_t)c->lfo_am << 1) >> h->am_shift;
-        h->fb[0] = h->fb[1];
-        h->fb[1] = h->fb_in;
-        for (k = 0; k < 4u; k++) {
-            opn2_op_t *o = &c->op[OPN2_MAP[ch][k]];
-            uint32_t upd, step;
-            if (o->env_state == OPN2_EG_RELEASE && o->env_att == 0x3FF && !o->ssg_en)
-                continue;                           /* silent for good: nothing of it is heard before a key on */
-            upd = refresh | (am_moved & o->am_en);
-            if (o->ssg_en) {
-                opn2_clock_ssg(o);
-                upd = 1;
-            } else if (o->ssg_inv) {
-                o->ssg_inv = 0;
-                upd = 1;
-            }
-            if (tick) {
-                opn2_clock_envelope(o, env >> 2);
-                upd = 1;
-            }
-            step = o->phase_step;
-            if (step == OPN2_PHASE_DYNAMIC) {
-                if (pm != o->dyn_pm) {              /* (the LFO's PM value moves every few hundred samples) */
-                    o->dyn_pm = pm;
-                    o->dyn_step = opn2_phase_step(o, h->pm_sens, pm);
-                }
-                step = o->dyn_step;
-            }
-            o->phase += step;
-            if (upd)
-                opn2_att_update(o, am);
-        }
-        out[ch][0] = out[ch][1] = 0;
-        if (ch < nout && ((c->active >> ch) & 1u))
-            opn2_out(c, h, ch, out[ch]);
+    uint32_t s;
+    b->m = m;
+    b->nout = nout;
+    if (c->modified == 0 && c->prepare_count < 4096u) {   /* (opn2_prepare's own test, without the call) */
+        c->prepare_count++;
+        b->refresh = 0;
+    } else {
+        b->refresh = (uint32_t)OPN2_FAR(opn2_prepare)(c);   /* (cold code, in XIP) */
+    }
+    c->prepare_count += m - 1u;                    /* (the block's other samples: no sweep among them, opn2_render_n) */
+    for (s = 0; s < m; s++) {
+        if (opn2_bf(++c->env_counter, 0, 2) == 3)   /* EG_CLOCK_DIVIDER 3 */
+            c->env_counter += 1;
+        b->envc[s] = c->env_counter;
+        b->pm[s] = opn2_clock_lfo(c);
+        b->amv[s] = c->lfo_am;
+        b->am_mv[s] = c->lfo_am != c->lfo_am_prev;
+        c->lfo_am_prev = c->lfo_am;
     }
 }
 
-static OPN2_AI int32_t opn2_dac_disc(int32_t v) { return v < 0 ? v - 3 : v + 4; }   /* the YM2612's DAC discontinuity */
-
-static OPN2_FAST void opn2_generate(opn2_t *c, int32_t *lr)   /* ym2612::generate, one sample */
+/* channels lo..hi-1 over the begun block */
+static OPN2_FAST void opn2_block_channels(opn2_t *c, const opn2_blk_t *b, int32_t (*out)[OPN2_CHANNELS][2], uint32_t lo,
+                                          uint32_t hi)
 {
-    uint32_t ch, last;
-    int32_t t[OPN2_CHANNELS][2];
-    last = c->dac_en ? 5u : 6u;
-    opn2_render(c, t, last);
-    lr[0] = lr[1] = 0;
-    for (ch = 0; ch < last; ch++) {
-        lr[0] += opn2_dac_disc(t[ch][0]);
-        lr[1] += opn2_dac_disc(t[ch][1]);
+    uint32_t ch, k, s, m = b->m;
+    for (ch = lo; ch < hi; ch++) {
+        opn2_ch_t *h = &c->ch[ch];
+        opn2_op_t *o0 = OPN2_OP(c, ch, 0);
+        uint32_t heard = ch < b->nout && ((c->active >> ch) & 1u);
+        for (s = 0; s < m; s++) {
+            uint32_t env = b->envc[s], tick = (env & 3u) == 0, am = ((uint32_t)b->amv[s] << 1) >> h->am_shift;
+            uint32_t mv = b->am_mv[s], refresh = s == 0 ? b->refresh : 0u;
+            int32_t pm = b->pm[s];
+            h->fb[0] = h->fb[1];
+            h->fb[1] = h->fb_in;
+            for (k = 0; k < 4u; k++) {
+                opn2_op_t *o = o0 + k;
+                uint32_t upd, step;
+                if (o->idle)
+                    continue;                       /* silent for good: nothing of it is heard before a key on */
+                upd = refresh | (mv & o->am_en);
+                if (o->ssg_en) {
+                    opn2_clock_ssg(o);
+                    upd = 1;
+                } else if (o->ssg_inv) {
+                    o->ssg_inv = 0;
+                    upd = 1;
+                }
+                if (tick) {
+                    opn2_clock_envelope(o, env >> 2);
+                    upd = 1;
+                }
+                step = o->phase_step;
+                if (step == OPN2_PHASE_DYNAMIC) {
+                    if (pm != o->dyn_pm) {          /* (the LFO's PM value moves every few hundred samples) */
+                        o->dyn_pm = pm;
+                        o->dyn_step = opn2_phase_step(o, h->pm_sens, pm);
+                    }
+                    step = o->dyn_step;
+                }
+                o->phase += step;
+                if (upd) {
+                    opn2_att_update(o, am);
+                    o->idle = o->env_state == OPN2_EG_RELEASE && o->env_att == 0x3FF && !o->ssg_en;
+                }
+            }
+            out[s][ch][0] = out[s][ch][1] = 0;
+            if (heard)
+                opn2_out(c, h, ch, out[s][ch]);
+        }
     }
-    if (c->dac_en) {
-        int32_t dacval = opn2_dac_disc((int16_t)(c->dac_data << 7) >> 7);
-        lr[0] += OPN2_RB(c, 0xB4, 7, 1, 0x102) ? dacval : opn2_dac_disc(0);
-        lr[1] += OPN2_RB(c, 0xB4, 6, 1, 0x102) ? dacval : opn2_dac_disc(0);
+}
+
+/* two cores: the global steps of up to nbmax blocks covering at most n samples, all at once, so their channels can be
+ * rendered apart (opn2_channels_n, on either core). Stops before a block that would start with the sweep's prepare
+ * (it must come after the blocks before it are rendered): returns the samples covered, *nb the blocks */
+static OPN2_FAST uint32_t opn2_begin_n(opn2_t *c, opn2_blk_t *b, uint32_t nbmax, uint32_t n, uint32_t nout, uint32_t *nb)
+{
+    uint32_t done = 0, k = 0;
+    while (done < n && k < nbmax) {
+        uint32_t m = n - done < OPN2_BLK ? n - done : OPN2_BLK;
+        if (k > 0 && !(c->modified == 0 && c->prepare_count < 4096u))
+            break;                                  /* (a prepare is due: the caller's next call) */
+        if (c->modified == 0 && c->prepare_count < 4096u && m > 4096u - c->prepare_count)
+            m = 4096u - c->prepare_count;
+        opn2_block_begin(c, &b[k], m, nout);
+        done += m;
+        k++;
     }
-    lr[0] = (lr[0] * 128) * 64 / (6 * 65);
-    lr[1] = (lr[1] * 128) * 64 / (6 * 65);
+    *nb = k;
+    return done;
+}
+static OPN2_FAST void opn2_channels_n(opn2_t *c, const opn2_blk_t *b, uint32_t nb, int32_t (*out)[OPN2_CHANNELS][2],
+                                      uint32_t lo, uint32_t hi)
+{
+    uint32_t k;
+    for (k = 0; k < nb; k++) {
+        opn2_block_channels(c, &b[k], out, lo, hi);
+        out += b[k].m;
+    }
+}
+/* ym2612::generate's mix of samples rendered by channel (opn2_render_n / opn2_channels_n): lr[s] from out[s] */
+static OPN2_FAST void opn2_mix_n(const opn2_t *c, const int32_t (*out)[OPN2_CHANNELS][2], int32_t (*lr)[2], uint32_t n)
+{
+    uint32_t s, ch, last = c->dac_en ? 5u : 6u;
+    for (s = 0; s < n; s++) {
+        int32_t l = 0, r = 0;
+        for (ch = 0; ch < last; ch++) {
+            l += opn2_dac_disc(out[s][ch][0]);
+            r += opn2_dac_disc(out[s][ch][1]);
+        }
+        if (c->dac_en) {
+            int32_t dacval = opn2_dac_disc((int16_t)(c->dac_data << 7) >> 7);
+            l += OPN2_RB(c, 0xB4, 7, 1, 0x102) ? dacval : opn2_dac_disc(0);
+            r += OPN2_RB(c, 0xB4, 6, 1, 0x102) ? dacval : opn2_dac_disc(0);
+        }
+        lr[s][0] = (l * 128) * 64 / (6 * 65);
+        lr[s][1] = (r * 128) * 64 / (6 * 65);
+    }
+}
+
+/* n samples, in blocks that end before the 4096-sample prepare sweep */
+static OPN2_FAST void opn2_render_n(opn2_t *c, int32_t (*out)[OPN2_CHANNELS][2], uint32_t n, uint32_t nout)
+{
+    opn2_blk_t b;
+    while (n) {
+        uint32_t m = n < OPN2_BLK ? n : OPN2_BLK;
+        if (c->modified == 0 && c->prepare_count < 4096u && m > 4096u - c->prepare_count)
+            m = 4096u - c->prepare_count;          /* (the sweep is due at the next block's first sample) */
+        opn2_block_begin(c, &b, m, nout);
+        opn2_block_channels(c, &b, out, 0, OPN2_CHANNELS);
+        out += m;
+        n -= m;
+    }
+}
+static void opn2_render(opn2_t *c, int32_t (*out)[2], uint32_t nout)   /* one sample */
+{
+    OPN2_FAR(opn2_render_n)(c, (int32_t (*)[OPN2_CHANNELS][2])out, 1, nout);
+}
+
+
+/* ym2612::generate, n samples: lr[s][0] L, lr[s][1] R (in steps of 8: the channels' outputs on the stack) */
+static OPN2_FAST void opn2_generate_n(opn2_t *c, int32_t (*lr)[2], uint32_t n)
+{
+    int32_t t[8][OPN2_CHANNELS][2];
+    uint32_t s, k, ch, m, last;
+    for (s = 0; s < n; s += m) {
+        m = n - s < 8u ? n - s : 8u;
+        last = c->dac_en ? 5u : 6u;                 /* (a DAC write comes between calls, never inside one) */
+        opn2_render_n(c, t, m, last);
+        for (k = 0; k < m; k++) {
+            int32_t l = 0, r = 0;
+            for (ch = 0; ch < last; ch++) {
+                l += opn2_dac_disc(t[k][ch][0]);
+                r += opn2_dac_disc(t[k][ch][1]);
+            }
+            if (c->dac_en) {
+                int32_t dacval = opn2_dac_disc((int16_t)(c->dac_data << 7) >> 7);
+                l += OPN2_RB(c, 0xB4, 7, 1, 0x102) ? dacval : opn2_dac_disc(0);
+                r += OPN2_RB(c, 0xB4, 6, 1, 0x102) ? dacval : opn2_dac_disc(0);
+            }
+            lr[s + k][0] = (l * 128) * 64 / (6 * 65);
+            lr[s + k][1] = (r * 128) * 64 / (6 * 65);
+        }
+    }
+}
+static void opn2_generate(opn2_t *c, int32_t *lr)   /* one sample */
+{
+    OPN2_FAR(opn2_generate_n)(c, (int32_t (*)[2])lr, 1);
 }
