@@ -13,11 +13,21 @@
  * 6. the shared budget: an OPN2 track's voices take nothing from another track's eight
  * 7. velocity: a softer note is quieter (the carriers' TL); VSEN 0 makes it the same
  * 8. Legacy: LADR and S&H change the sound; EARLY / LATE lower the brightness against CLEAN
- * 9. demos into DEMODIR: every factory preset playing its suggested pattern */
+ * 9. demos into DEMODIR: every factory preset playing its suggested pattern
+ * 10. the idle chip: unclocked once every note is released to silence; a note after it as on a chip clocked meanwhile
+ * 11. (built with -DOP2_ONE_CORE_CAP=4, run alone) the one-core cap: four channels without the second core, the
+ *     channels past it ending when it gives up, six again once it is back */
 #include <stdint.h>
 static struct { uint32_t port, reg, data; } reglog[4096];
 static uint32_t nreg;
 #define OP2_REG_LOG(p, r, d) (nreg < 4096u ? (reglog[nreg].port = (p), reglog[nreg].reg = (r), reglog[nreg].data = (d), nreg++) : 0u)
+#ifdef OP2_ONE_CORE_CAP                /* (the cap build, -DOP2_ONE_CORE_CAP=4: a second core the test turns on and off;
+                                        * nothing runs on it: C1_RUN never takes a job, the parts and channels stay here) */
+static int cap_c1_on = 1;
+#define C1_ON() cap_c1_on
+#define C1_RUN(fn, arg) 0
+#define C1_WAIT() 0
+#endif
 #define main hostsim_main
 #include "hostsim.c"
 #undef main
@@ -409,6 +419,115 @@ static void demo(const char *dir, uint32_t pi)
     fclose(w);
 }
 
+/* ----------------------------------------- 10 the silent chip unclocked --- */
+static void idle_chip(void)
+{
+    static double y1[440 * CTL], y2[440 * CTL];
+    uint32_t i, k, idle0, held_idle;
+    double s1, paused, d, spread = 0;
+    op2_patch_t pad = OP2_FACTORY[17];            /* F18 PAD (a long release), its LFO off: the LFO's phase is the one
+                                                   * thing a pause moves (and is free running on the chip anyway) */
+    pad.lfo = 0;
+    op2_reset_all();
+    op2_setup(0, 17);
+    op2_set_patch(0, &pad);
+    idle0 = op2_idle_blocks;
+    trk_note_on(&trk[0], 60, 100);
+    blocks(0, 50);
+    held_idle = op2_idle_blocks - idle0;
+    trk_note_off(&trk[0], 60);
+    for (i = 0; i < 8u * 1378u && !(busy_channels() == 0 && op2_idle_blocks > idle0); i++)
+        block(0, 0);
+    check("idle chip: clocked while a note sounds; unclocked once it is released to silence (within 8 s)",
+          held_idle == 0 && busy_channels() == 0 && op2_idle_blocks > idle0);
+    idle0 = op2_idle_blocks;
+    blocks(0, 100);
+    check("idle chip: then every block skips it", op2_idle_blocks - idle0 == 100u);
+    note_render(60, 100, 400, 40, y2);
+    op2_reset_all();
+    op2_setup(0, 17);
+    op2_set_patch(0, &pad);
+    note_render(60, 100, 400, 40, y1);
+    s1 = rms(y1 + 200 * CTL, 200 * CTL);
+    paused = fabs(s1 - rms(y2 + 200 * CTL, 200 * CTL));
+    /* the control: a chip never paused (a held note on track 2 keeps it clocked), the note k blocks later: only the
+     * envelope counter's phase at its key on differs, as on the chip, where it runs free */
+    for (k = 1; k <= 24u; k++) {
+        op2_reset_all();
+        op2_setup(0, 17);
+        op2_setup(1, 17);
+        op2_set_patch(0, &pad);
+        op2_set_patch(1, &pad);
+        trk_note_on(&trk[1], 36, 100);
+        for (i = 0; i < k; i++)
+            block(1, 0);
+        note_render(60, 100, 400, 40, y2);
+        d = fabs(s1 - rms(y2 + 200 * CTL, 200 * CTL));
+        spread = d > spread ? d : spread;
+    }
+    printf("opn2: idle chip: sustain RMS %.1f; after a pause %.1f off; a never-paused chip, key on 1..24 blocks later: "
+           "up to %.1f off\n", s1, paused, spread);
+    check("idle chip: a note after the pause sounds as one on a chip clocked meanwhile (no LFO: sustain RMS within the "
+          "spread of the key on's envelope-counter phase)", s1 > 0 && paused <= spread * 1.25 + s1 * 0.002);
+}
+
+#ifdef OP2_ONE_CORE_CAP
+/* ------------------------------------ 11 the one-core cap (the cap build) --- */
+static void cap_render(uint32_t n)
+{
+    static int32_t b[CTL];
+    uint32_t i;
+    for (i = 0; i < n; i++) {
+        op2_mix_begin();
+        track_render(&trk[0], b, CTL);
+    }
+}
+static int cap_voices_on_channels_ok(uint32_t nch)   /* every sounding voice on a busy channel below nch */
+{
+    uint32_t i;
+    for (i = 0; i < NVOICE; i++) {
+        const voice_t *v = &trk[0].v[i];
+        if (v->active && v->stage != 4u && (v->s[0] < 1 || v->s[0] > (int32_t)nch || !op2_ch[v->s[0] - 1].busy))
+            return 0;
+    }
+    return 1;
+}
+static void one_core_cap(void)
+{
+    uint32_t i;
+    op2_reset_all();
+    op2_setup(0, 13);                             /* ORGAN: held at full level */
+    trk[0].p[P_VOICE] = V_POLY;
+    cap_c1_on = 1;
+    for (i = 0; i < 6u; i++)
+        trk_note_on(&trk[0], 60 + i, 100);
+    cap_render(2);
+    check("cap: second core answering: six notes on six channels", busy_channels() == 6u);
+    cap_c1_on = 0;                                /* it gives up */
+    cap_render(2);
+    check("cap: then without it: the channels past 4 end, the four first sound on",
+          busy_channels() == 4u && !op2_ch[4].busy && !op2_ch[5].busy && cap_voices_on_channels_ok(4));
+    for (i = 0; i < 6u; i++)
+        trk_note_off(&trk[0], 60 + i);
+    cap_render(FS * 8u / CTL);
+    for (i = 0; i < 6u; i++)
+        trk_note_on(&trk[0], 72 + i, 100);
+    cap_render(2);
+    check("cap: one core from the start: six notes take channels 1..4 only (CHIP LIMIT at four)",
+          busy_channels() == 4u && !op2_ch[4].busy && !op2_ch[5].busy && cap_voices_on_channels_ok(4));
+    cap_c1_on = 1;
+    trk_note_on(&trk[0], 84, 100);
+    cap_render(2);
+    check("cap: the second core back: a new note takes a fifth channel", busy_channels() == 5u);
+}
+
+int main(void)
+{
+    one_core_cap();
+    printf("opn2_engine_test (cap %u): %s\n", OP2_ONE_CORE_CAP, bad ? "FAILED" : "all checks ok");
+    return bad != 0;
+}
+#else
 int main(int argc, char **argv)
 {
     uint32_t pi;
@@ -419,6 +538,7 @@ int main(int argc, char **argv)
     voice_modes();
     budget();
     velocity_legacy();
+    idle_chip();
     if (argc > 1) {
         for (pi = 0; pi < NELEM(OP2_PRESETS); pi++)
             demo(argv[1], pi);
@@ -428,3 +548,4 @@ int main(int argc, char **argv)
     printf("opn2_engine_test: %s\n", bad ? "FAILED" : "all checks ok");
     return bad != 0;
 }
+#endif

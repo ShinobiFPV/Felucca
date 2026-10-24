@@ -329,11 +329,40 @@ static void op2_globals(const op2_patch_t *p)
 /* ------------------------------------------------------- the channels --- */
 static void voice_kill(voice_t *v);             /* (voice.c) */
 
+/* the channels notes may take: all six; on a device without its second core answering (MENU > SYSTEM > 2ND CORE
+ * OFF, or it gave up) OP2_ONE_CORE_CAP (felucca.c): one core cannot render six channels and the rest in time */
+static uint32_t op2_nchan(void)
+{
+#ifdef OP2_ONE_CORE_CAP
+#if FELUCCA_CPU2
+    if (C1_ON())
+        return OPN2_CHANNELS;
+#endif
+    return OP2_ONE_CORE_CAP;
+#else
+    return OPN2_CHANNELS;
+#endif
+}
+
+/* channel ch's note ends now (CHIP LIMIT, the cap): its voice fades over a block, silent; the channel is free */
+static void op2_steal(uint32_t ch)
+{
+    op2_chan_t *c = &op2_ch[ch];
+    voice_t *ov = &trk[c->part % NPART].v[c->voice % NVOICE];
+    if (ov->s[0] == (int32_t)ch + 1) {
+        ov->s[0] = 0;
+        voice_kill(ov);
+    }
+    if (c->keyed)
+        op2_key(ch, 0);
+    c->busy = c->keyed = c->restart = 0;
+}
+
 /* a channel for a new note of track tr's patch p: CH3 patches channel 3; else a free one (one that holds the track's
  * patch first: fewer writes), else CHIP LIMIT takes the oldest released note's, else the oldest held one's */
 static uint32_t op2_alloc(uint32_t tr, const op2_patch_t *p)
 {
-    uint32_t ch, best = OPN2_CHANNELS, lo = p->ch3 ? 2u : 0u, hi = p->ch3 ? 3u : OPN2_CHANNELS;
+    uint32_t ch, best = OPN2_CHANNELS, lo = p->ch3 ? 2u : 0u, hi = p->ch3 ? 3u : op2_nchan();
     for (ch = lo; ch < hi; ch++)
         if (!op2_ch[ch].busy && (best == OPN2_CHANNELS || (op2_ch[ch].ptrack == tr && op2_ch[ch].pgen == op2_lgen[tr])))
             best = ch;
@@ -346,17 +375,7 @@ static uint32_t op2_alloc(uint32_t tr, const op2_patch_t *p)
         for (ch = lo; ch < hi; ch++)            /* held, oldest */
             if (best == OPN2_CHANNELS || op2_ch[ch].age < op2_ch[best].age)
                 best = ch;
-    {
-        op2_chan_t *c = &op2_ch[best];          /* CHIP LIMIT: its note ends (the voice fades over a block, silent) */
-        voice_t *ov = &trk[c->part % NPART].v[c->voice % NVOICE];
-        if (ov->s[0] == (int32_t)best + 1) {
-            ov->s[0] = 0;
-            voice_kill(ov);
-        }
-        if (c->keyed)
-            op2_key(best, 0);
-        c->busy = c->keyed = c->restart = 0;
-    }
+    op2_steal(best);                            /* CHIP LIMIT: its note ends */
     return best;
 }
 
@@ -419,7 +438,7 @@ static void op2_start(track_t *t, voice_t *v)
  * moved (its registers again), the pitch */
 static void op2_upkeep(void)
 {
-    uint32_t ch;
+    uint32_t ch, nch = op2_nchan();
     for (ch = 0; ch < OPN2_CHANNELS; ch++) {
         op2_chan_t *c = &op2_ch[ch];
         track_t *t = &trk[c->part % NPART];
@@ -427,6 +446,10 @@ static void op2_upkeep(void)
         const op2_patch_t *p;
         if (!c->busy)
             continue;
+        if (ch >= nch) {                        /* past the cap (the second core gave up): it ends */
+            op2_steal(ch);
+            continue;
+        }
         if (!v->active || v->stage == 4u || t->engine != ENGI_OPN2 || v->s[0] != (int32_t)ch + 1) {
             if (c->keyed)
                 op2_key(ch, 0);
@@ -455,6 +478,7 @@ static void op2_upkeep(void)
 /* ------------------------------------------------- the block, before the parts --- */
 static uint8_t op2_c1_failed;                   /* the second core stopped answering during a chip job (console) */
 static uint32_t op2_c1_blocks;                  /* blocks the second core rendered channels 4..6 of (console) */
+static uint32_t op2_idle_blocks;                /* blocks the chip was silent and not clocked (console) */
 #if FELUCCA_CPU2
 static void op2_c1_job(uint32_t off) { OPN2_FAR(opn2_channels_n)(&op2_chip, op2_blk, op2_nb, op2_nat + off, 3, 6); }
 #endif
@@ -550,7 +574,13 @@ __attribute__((noinline)) static void op2_mix_begin(void)   /* (out of line: its
             if (t->v[i].active && t->v[i].s[1])
                 op2_start(t, &t->v[i]);
     }
-    nn = ((op2_rs_ph + (CTL - 1u) * OP2_STEP_Q16) >> 16) + 1u;   /* the native samples this block needs (38 or 39) */
+    for (ch = 0, any = 0; ch < OPN2_CHANNELS; ch++)
+        any |= op2_ch[ch].busy;
+    if (!any && opn2_silent(&op2_chip)) {       /* no note, every operator released to silence: no chip this block */
+        op2_idle_blocks++;
+        return;
+    }
+    nn =((op2_rs_ph + (CTL - 1u) * OP2_STEP_Q16) >> 16) + 1u;   /* the native samples this block needs (38 or 39) */
     op2_render_chip(nn);
     for (ch = 0; ch < OPN2_CHANNELS; ch++)
         if (op2_ch[ch].busy)

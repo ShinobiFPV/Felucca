@@ -597,6 +597,20 @@ static void opn2_write(opn2_t *c, uint32_t port, uint8_t data)   /* ym2612::writ
     }
 }
 
+/* (ShinTech, not ymfm) 1: nothing of the chip can be heard until a write: no write waiting for its prepare, the DAC
+ * off, every operator idle (released, at full attenuation, no SSG-EG). A caller may then leave it unclocked; only the
+ * envelope and LFO counters' phase differ from a chip clocked meanwhile */
+static int opn2_silent(const opn2_t *c)
+{
+    uint32_t i;
+    if (c->modified || c->dac_en)
+        return 0;
+    for (i = 0; i < OPN2_CHANNELS * 4u; i++)
+        if (!c->op[i].idle)
+            return 0;
+    return 1;
+}
+
 /* fm_engine_base::clock's prepare: after any write (and every 4096 samples) the channels' and operators' caches,
  * the key states; 1 = it ran */
 static int opn2_prepare(opn2_t *c)

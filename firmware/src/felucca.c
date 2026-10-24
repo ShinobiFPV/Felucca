@@ -61,6 +61,7 @@
 #define C1_RUN(fn, arg) fm1_cpu1_run(fn, arg)
 #define C1_WAIT() fm1_cpu1_wait()
 #endif
+#define OP2_ONE_CORE_CAP 4u              /* ShinTech: OPN2 channels while one core renders everything (eng_opn2.c) */
 #include "fm1_input.h"
 #include "fm1_timer.h"
 #include "fm1_audio.h"

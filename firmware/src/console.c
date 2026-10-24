@@ -211,6 +211,7 @@ static void con_status(void)
     con_kv("opn2_c1_blocks", (int32_t)op2_c1_blocks);   /* ShinTech: blocks it rendered OPN2 channels 4..6 of */
     con_kv("opn2_c1_failed", op2_c1_failed);            /* 1: it stopped answering during one (eng_opn2.c) */
 #endif
+    con_kv("opn2_idle_blocks", (int32_t)op2_idle_blocks);   /* ShinTech: blocks the OPN2 chip was silent, unclocked */
     con_kv("voices_given_up", (int32_t)voice_kills);
     con_kv("track", (int32_t)song.sel + 1);
     con_kv("batt_raw", song.batt_raw);
