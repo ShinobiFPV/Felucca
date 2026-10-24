@@ -77,3 +77,29 @@ The 16BIT groovebox fork of Felucca (OPN2, PSG and PCM8 engines). Based on upstr
   second core (MENU > SYSTEM > 2ND CORE OFF, or a unit that cannot run it) the port alone costs ~84 % worst case; the
   engine must then cap the sounding FM channels (Phase 2).
 
+
+### Phase 2: the OPN2 engine (in progress)
+
+- Engine 14, OPN2 (`firmware/src/eng_opn2.c`): one shared chip, 6 channels owned by the voices of the OPN2 tracks
+  (CHIP LIMIT steals the oldest released, else the oldest held), POLY / MONO / LEGATO, RATIO, CH3 mode, velocity to
+  the carriers' TL, the ladder and Legacy shaping (CLEAN / EARLY / LATE, with or without S&H), channels 4..6 on the
+  second core. 32 original factory patches in 7 categories (`opn2_factory.h`). Last in the engine order; on the EDIT
+  layer the 13th white key cycles DRUM -> OPN2.
+- Stores: a project with a track on an engine >= 14 is written FUN11 ("FUNB"), any other still FUN10 ("FUNA"), as
+  upstream; both load. **A FUNB project does not open on upstream Felucca.** User presets of an OPN2 sound are
+  version 6 records. Favourites of engines >= 14 live in the unused upper halves of favourites rows 0 / 2 / 3.
+- `op2_mix_begin` / `op2_post` are kept out of the audio ISR (their own target budgets, `tests/target_budget.txt`).
+- Console `status`: `opn2_c1_blocks`, `opn2_c1_failed`.
+
+#### Device test (FM-1, 2ND CORE ON, HALL reverb; `tools/shintech/fm1midi.py` + console `status`)
+
+| state | cpu_pct | longest half (of 2,902 us) |
+|---|---|---|
+| no OPN2 track (ANALOG) | 13 % | 771 us |
+| OPN2 track, 1 note (PAD) | 47 % | 1,578 us |
+| 6 notes (every channel) | 64 % | 2,189 us (75 %) |
+| 8 notes held (CHIP LIMIT steals 2) | 63 % | - |
+| T1 PAD 3 + T2 BRASS 3 | 62 % | - |
+| released (tails) | 54-57 % | - |
+
+No late blocks, no reboot, the second core took every block (`opn2_c1_blocks` +1,378/s, `opn2_c1_failed` 0).
