@@ -302,9 +302,81 @@ static void dac_channel(void)
     check("no PCM8 track: six again", op2_nchan() == 6u);
 }
 
+/* 9. the hit cache: a kit hit kept as it plays, then played from the cache */
+static voice_t *last_voice(void)
+{
+    uint32_t i;
+    voice_t *v = 0;
+    for (i = 0; i < NVOICE; i++)
+        if (trk[0].v[i].active) v = &trk[0].v[i];
+    return v;
+}
+static double hit(uint32_t note, uint32_t vel, double *y, uint32_t *mode)
+{
+    uint32_t i;
+    voice_t *v;
+    trk_note_on(&trk[0], note, vel);
+    v = last_voice();
+    *mode = v ? (uint32_t)v->s[7] : 99u;
+    for (i = 0; i < 345u; i++) block(0, y ? y + i * CTL : 0);
+    for (i = 0; i < 4u * 1378u && active_voices(0); i++) block(0, 0);
+    return y ? rms(y, 345u * CTL) : 0;
+}
+static void cache(void)
+{
+    static double y1[345 * CTL], y2[345 * CTL];
+    pcm8_cache_t *c;
+    uint32_t m1, m2, m3, m4, i;
+    double r1, r2, r3, d = 0, n = 0;
+    setup(0, 0);                                 /* STD 8BIT */
+    block(0, 0);
+    c = pcm8_cache(&trk[0]);
+    r1 = hit(36, 110, y1, &m1);
+    r2 = hit(36, 110, y2, &m2);
+    for (i = 0; i < 345u * CTL; i++) { d += (y1[i] - y2[i]) * (y1[i] - y2[i]); n += y1[i] * y1[i]; }
+    printf("pcm8: cache: kick 1 %s (RMS %.0f), kick 2 %s (RMS %.0f), difference %.1f %% of its energy\n",
+           m1 == PV_REC ? "live, kept" : "?", r1, m2 == PV_PLAY ? "from the cache" : "?", r2, 100.0 * d / (n ? n : 1));
+    check("cache: the first kick plays live and is kept; the second plays from the cache, as the first (+-3 % of its energy)",
+          m1 == PV_REC && m2 == PV_PLAY && c->ent[0].state == 2u && d < 0.03 * n && r2 > 0);
+    r3 = hit(36, 55, y2, &m3);
+    printf("pcm8: cache: velocity 55: RMS %.0f (110: %.0f)\n", r3, r2);
+    check("cache: a softer hit from the cache plays softer (velocity 55: 30..70 % of velocity 110's RMS)", m3 == PV_PLAY &&
+          r3 > 0.3 * r2 && r3 < 0.7 * r2);
+    trk[0].p[P_E4] = 5;                          /* TUNE +5: another key */
+    hit(36, 110, 0, &m4);
+    check("cache: TUNE moved: the kick is another sound, kept anew (live)", m4 == PV_REC);
+    trk[0].p[P_E4] = 0;
+    trk[0].p[P_E1] = 2;                          /* 48K: the crash (long) outgrows its room */
+    trk[0].p[P_E5] = 127;
+    {
+        uint32_t m5, m6;
+        hit(49, 110, 0, &m5);
+        hit(49, 110, 0, &m6);
+        printf("pcm8: cache: the crash at 48K: first %u, second %u (0 live, 1 kept, 2 from the cache)\n", m5, m6);
+        check("cache: a hit longer than its room stays live, whole (the crash at 48K, DCAY 127)", m6 != PV_PLAY && !c->rec);
+    }
+    trk[0].p[P_E1] = 1;
+    trk[0].p[P_E5] = 64;
+    {                                            /* the choke: a closed hat cuts an open one from the cache */
+        uint32_t m7, k;
+        hit(46, 110, 0, &m7);                    /* kept */
+        trk_note_on(&trk[0], 46, 110);           /* from the cache */
+        block(0, 0);
+        trk_note_on(&trk[0], 42, 110);
+        for (k = 0; k < 4u; k++) block(0, 0);
+        {
+            uint32_t open = 0;
+            for (k = 0; k < NVOICE; k++)
+                open += trk[0].v[k].active && trk[0].v[k].s[7] == PV_PLAY && c->ent[trk[0].v[k].s[6] % PCM8_NENT].note == 46u;
+            check("cache: a closed hat chokes an open hat played from the cache", !open);
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
     uint32_t pi;
+    cache();
     dac_channel();
     dac();
     kits();

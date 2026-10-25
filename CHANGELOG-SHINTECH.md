@@ -115,6 +115,15 @@
   this fork does not do (stability first). A slot holds a whole kit as a row of hits (SLICE finds up to its AUTO
   count of onsets).
 - With a PCM8 track in the project OPN2 has five FM channels: channel 6 is the DAC, as on the console.
+- **The hit cache:** a kit hit played the first time is DRUM's voice, live, and is kept as it plays: its level at each
+  DAC tick, 8 bits (the console's own kind of sample), in the rest of the part's engine memory (~10.6 KB: 0.9 s of hits
+  at 12K, 0.44 s at 24K, 0.24 s at 48K; no RAM of its own). The same hit again (note, kit, TUNE, DCAY, RATE, lane level)
+  plays from it: a table read. It ends where the hit falls under one 8-bit step; the velocity, LFO -> AMP and fades
+  scale it; a closed hat chokes a cached open one. A hit longer than its room (a long crash, most at 48K) stays live and
+  whole; one recording at a time; when full the cache starts over, never under a voice playing from it.
+- **The 16BIT template:** SAVE > PROJECT's SLOT has a fifth place, 16BIT TEMPLATE (after A..D). LOAD there sets T1
+  OPN2 SLAP BASS, T2 OPN2 E.PIANO, T3 PSG MAJOR ARP, T4 PCM8 STD 8BIT, each with its suggested pattern (the tempo, the
+  mix and the effects stay); SAVE, ERASE and the rename are not for it.
 - Stores: as OPN2's and PSG's (FUNB, version 6 presets, favourites in row 3's upper half). Last in the engine order.
 
 #### Device test (FM-1, 2ND CORE ON, HALL reverb; the console's new `clr` resets the peak for each case)

@@ -289,6 +289,22 @@ int main(void)
          favorite_has(3, 0) && favorites.factory[3][16 + 13 / 8] == 1u << (13 % 8);
     pcheck("PCM8: a favourite in LOFI's row's unused upper half, LOFI's and PSG's own untouched", ok);
 
+    /* 9. SAVE > PROJECT's fifth SLOT: the 16BIT template (LOAD only) */
+    ui_power_on();
+    project_save(0);                              /* (slot A in use: the template must not touch it) */
+    go_title("PROJECT"); frame();
+    song.g[G_SLOT] = (int16_t)(PROJ_SLOT_16BIT + 1u);
+    frame();
+    ui.act = 3; ok = act_ready();                 /* LOAD (column 3) yes, */
+    ui.act = 2; ok &= !act_ready();               /* ERASE and */
+    ui.act = 4; ok &= !act_ready();               /* SAVE no */
+    ui.act = 0;
+    template_16bit();
+    ok &= trk[0].eng_req == ENGI_OPN2 && trk[1].eng_req == ENGI_OPN2 && trk[2].eng_req == ENGI_PSG &&
+          trk[3].eng_req == ENGI_PCM8 && !seq_is_empty(&trk[0]) && !seq_is_empty(&trk[3]) && project_used(0);
+    ok &= op2_nchan() == 5u || trk[3].engine != ENGI_PCM8;   /* (with its PCM8 track: five FM channels, once switched) */
+    pcheck("16BIT template: SLOT 5 on PROJECT, LOAD only; T1 T2 OPN2, T3 PSG, T4 PCM8 with their patterns; slot A kept", ok);
+
     printf("opn2_persist_test: %s\n", pbad ? "FAILED" : "all checks ok");
     return pbad != 0;
 }

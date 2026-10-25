@@ -1569,8 +1569,8 @@ static void graph_events(void)
 static void graph_slots(void)
 {
     uint32_t i;
-    for (i = 0; i < 4u; i++) {
-        int32_t y = 12 + (int32_t)i * 26;
+    for (i = 0; i < 4u; i++) {                       /* (ShinTech: rows 20 px apart, the fifth the 16BIT template) */
+        int32_t y = 8 + (int32_t)i * 20;
         char b[4];
         int sel = (int32_t)i + 1 == song.g[G_SLOT], used = graph_project_used(i);
         const char *n = graph_project_name(i);
@@ -1578,6 +1578,7 @@ static void graph_slots(void)
         b[1] = 0;
         list_row(y, sel, b, T_MID, !used ? "--" : n[0] ? n : "USED", used ? T_TEXT : T_DIM, 232);
     }
+    list_row(8 + 4 * 20, song.g[G_SLOT] == (int16_t)(PROJ_SLOT_16BIT + 1u), "T", T_MID, "16BIT TEMPLATE", T_TEXT, 232);
 }
 /* MIXER page: four SURF columns, one under each card: the track number on its cushion (in the accent:
  * the selected track) with a REC / ARM / MUTE badge (P_MUTE, KNOB 1), the sound's short name (a MUTE badge

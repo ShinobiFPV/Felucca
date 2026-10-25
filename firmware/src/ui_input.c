@@ -1111,6 +1111,14 @@ static void act_do(void)
             name_open(NK_USER_SAVE, ui.uslot);
         return;
     }
+    if (cur_page()->graph == GR_SLOTS && k == PROJ_SLOT_16BIT) {   /* ShinTech: the 16BIT template: LOAD only */
+        ui.act = 0;
+        if (cur_page()->id[c & 3u] == G_LOAD)
+            template_16bit();
+        else
+            ui_message("TEMPLATE: LOAD ONLY");
+        return;
+    }
     if (cur_page()->graph == GR_SLOTS && c == 1u) {     /* PROJECT ERASE (1.5.5, #199): the dialog first */
         ui.act = 0;
         if (transport_busy())

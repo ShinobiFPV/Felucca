@@ -116,7 +116,9 @@ static void name_rename(void)
 {
     int user = cur_page()->graph == GR_USER;
     uint32_t k = user ? ui.uslot : (uint32_t)song.g[G_SLOT] - 1u;
-    if (!(user ? up_used(k) : project_used(k)))
+    if (!user && k == PROJ_SLOT_16BIT)
+        ui_message("TEMPLATE: LOAD ONLY");             /* (ShinTech: the 16BIT template has no name of its own) */
+    else if (!(user ? up_used(k) : project_used(k)))
         ui_message("EMPTY SLOT");
     else if (transport_busy())
         ui_message("STOP TO SAVE");

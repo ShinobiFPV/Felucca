@@ -7,6 +7,7 @@
 static int project_save(uint32_t slot);
 static void panel_setup(void);
 static void project_load(uint32_t slot);
+#define PROJ_SLOT_16BIT 4u                       /* ShinTech: SAVE > PROJECT's fifth SLOT (its k): the 16BIT template */
 static int project_used(uint32_t slot);
 static uint32_t chain_prepare(void);
 static int up_used(uint32_t k);              /* user presets: upreset.c */
@@ -1417,6 +1418,27 @@ static void set_engine_of(track_t *t, uint32_t ei)
     load_end(t);
 }
 
+/* ShinTech: SAVE > PROJECT, SLOT 16BIT (the fifth), LOAD: the 16BIT layout (the Phase 0 template) into the four tracks,
+ * each with its preset's suggested pattern: T1 OPN2 SLAP BASS, T2 OPN2 E.PIANO, T3 PSG MAJOR ARP, T4 PCM8 STD 8BIT (with
+ * a PCM8 track OPN2 has five channels: channel 6 is its DAC). The tempo, the mix and the effects stay; like a project
+ * load, the tracks' sounds and steps are replaced (each track's pattern load is its own undo, as SAVE > PHRASES) */
+static void template_16bit(void)
+{
+    static const uint8_t L[NTRK][2] = {{ENGI_OPN2, 0}, {ENGI_OPN2, 12}, {ENGI_PSG, 8}, {ENGI_PCM8, 0}};
+    uint32_t i;
+    for (i = 0; i < NTRK; i++) {
+        track_t *t = &trk[i];
+        uint32_t pat;
+        set_engine_of(t, L[i][0]);
+        apply_preset_to(t, L[i][1]);
+        pat = ENGINES[L[i][0]]->presets[L[i][1]].pat;
+        if (pat && pat <= NPATTERNS)
+            pat_load(t, pat - 1u);
+    }
+    ui_message("16BIT LAYOUT");
+    ui.force = 1;
+}
+
 static void apply_preset(uint32_t pi) { apply_preset_to(TSEL, pi); }
 static void set_engine(uint32_t ei) { set_engine_of(TSEL, ei); }
 
@@ -1859,6 +1881,8 @@ static int act_ready(void)
     if (cur_page()->graph == GR_SLICES)
         return slice_act_ready(c);
 #endif
+    if (cur_page()->graph == GR_SLOTS && (uint32_t)song.g[G_SLOT] - 1u == PROJ_SLOT_16BIT)
+        return cur_page()->id[c & 3u] == G_LOAD;        /* (ShinTech: the template: LOAD only) */
     if (cur_page()->graph == GR_SLOTS && c == 1u)       /* PROJECT ERASE: a used slot, stopped */
         return !song.playing && project_used((uint32_t)song.g[G_SLOT] - 1u);
     id = cur_page()->id[c & 3u];
