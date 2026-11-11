@@ -37,6 +37,136 @@ static uint32_t mask_of(const int *iv)
     return m;
 }
 
+/* a chord by hand: root, intervals (-1 ends), bass (-1 none), default voicing and inversion */
+static cs_chord_t mk(uint32_t root, const int *iv, int bass, uint32_t voicing, uint32_t inv)
+{
+    cs_chord_t c;
+    uint32_t i;
+    memset(&c, 0, sizeof c);
+    c.root = (uint8_t)root;
+    for (i = 0; iv[i] >= 0; i++)
+        c.iv[i] = (int8_t)iv[i];
+    c.n = (uint8_t)i;
+    c.bass = (int8_t)bass;
+    c.voicing = (uint8_t)voicing;
+    c.inv = (uint8_t)inv;
+    return c;
+}
+
+/* out (n notes) is exactly want (-1 ends); prints the notes */
+static void notes_are(const char *what, const uint8_t *out, uint32_t n, const int *want)
+{
+    char b[160], w[200];
+    uint32_t i, ok = 1, k = 0;
+    b[0] = 0;
+    for (i = 0; i < n; i++)
+        snprintf(b + strlen(b), sizeof b - strlen(b), "%s%u", i ? " " : "", out[i]);
+    for (i = 0; want[i] >= 0; i++)
+        ok &= i < n && out[i] == (uint8_t)want[i];
+    ok &= i == n;
+    k = (uint32_t)snprintf(w, sizeof w, "%s: %s", what, b);
+    (void)k;
+    check((int)ok, w);
+}
+
+static uint32_t moved(const uint8_t *a, const uint8_t *b, uint32_t n)   /* the semitones each voice moves, in sum */
+{
+    uint32_t i, s = 0;
+    for (i = 0; i < n; i++)
+        s += (uint32_t)(a[i] > b[i] ? a[i] - b[i] : b[i] - a[i]);
+    return s;
+}
+
+static void voicing_tests(void)
+{
+    static const int MAJ[] = {0, 4, 7, -1}, MIN[] = {0, 3, 7, -1}, MAJ7[] = {0, 4, 7, 11, -1};
+    static const int M13[] = {0, 4, 7, 10, 14, 21, -1}, M7[] = {0, 3, 7, 10, -1}, D7[] = {0, 4, 7, 10, -1};
+    cs_chord_t c = mk(0, MAJ, -1, CSV_CLOSE, 0), f = mk(5, MAJ, -1, CSV_CLOSE, 0), g = mk(7, MAJ, -1, CSV_CLOSE, 0);
+    uint8_t o[CS_VMAX], p[CS_VMAX], q[CS_VMAX];
+    uint32_t n, i, auto_mv = 0, root_mv = 0, all = 1;
+    n = cs_voice(&c, 0, CSV_AUTO, CS_INV_AUTO, 60, 0, 0, 0, o);
+    notes_are("C, RANGE C4, the first chord: its default (root position)", o, n, (const int[]){60, 64, 67, -1});
+    n = cs_voice(&c, 7, CSV_AUTO, CS_INV_AUTO, 60, 0, 0, 0, o);
+    notes_are("C in KEY G: G B D, its lowest in the window", o, n, (const int[]){67, 71, 74, -1});
+    n = cs_voice(&c, 0, CSV_AUTO, 1, 60, 0, 0, 0, o);
+    notes_are("INVERSION 1: E G C", o, n, (const int[]){64, 67, 72, -1});
+    n = cs_voice(&c, 0, CSV_AUTO, 2, 60, 0, 0, 0, o);
+    notes_are("INVERSION 2: G C E", o, n, (const int[]){67, 72, 76, -1});
+    n = cs_voice(&c, 0, CSV_AUTO, 3, 60, 0, 0, 0, o);
+    notes_are("INVERSION 3 of a triad: its last (2)", o, n, (const int[]){67, 72, 76, -1});
+    /* voice leading: C -> F -> G -> C, each the closest inversion in the window */
+    n = cs_voice(&c, 0, CSV_AUTO, CS_INV_AUTO, 60, 0, 0, 0, p);
+    n = cs_voice(&f, 0, CSV_AUTO, CS_INV_AUTO, 60, 0, p, n, o);
+    notes_are("voice leading C -> F: C F A (the common C kept, E G up one and two)", o, n, (const int[]){60, 65, 69, -1});
+    memcpy(p, o, n);
+    n = cs_voice(&g, 0, CSV_AUTO, CS_INV_AUTO, 60, 0, p, n, o);
+    notes_are("voice leading F -> G: D G B (each voice up two)", o, n, (const int[]){62, 67, 71, -1});
+    memcpy(p, o, n);
+    n = cs_voice(&c, 0, CSV_AUTO, CS_INV_AUTO, 60, 0, p, n, o);
+    notes_are("voice leading G -> C: E G C (G kept, D up two, B up one)", o, n, (const int[]){64, 67, 72, -1});
+    {   /* ii V I vi IV in C, over and over: voice leading moves less than root position, every chord its own notes */
+        const cs_chord_t prog[5] = {mk(2, M7, -1, 0, 0), mk(7, D7, -1, 0, 0), mk(0, MAJ7, -1, 0, 0), mk(9, M7, -1, 0, 0),
+                                    mk(5, MAJ7, -1, 0, 0)};
+        uint32_t np = 0, nr = 0, k;
+        uint8_t pr[CS_VMAX];
+        for (k = 0; k < 20u; k++) {
+            const cs_chord_t *x = &prog[k % 5u];
+            uint32_t na = cs_voice(x, 0, CSV_AUTO, CS_INV_AUTO, 55, 0, p, np, o);
+            uint32_t nb = cs_voice(x, 0, CSV_AUTO, 0, 55, 0, 0, 0, q);
+            for (i = 0; i < na; i++) {
+                uint32_t pc = (o[i] + 12u - x->root) % 12u, j, hit = 0;
+                for (j = 0; j < x->n; j++)
+                    hit |= pc == (uint32_t)x->iv[j] % 12u;
+                all &= hit && o[i] >= 55u && o[0] < 67u;
+            }
+            if (k) {
+                auto_mv += moved(o, p, na < np ? na : np);
+                root_mv += moved(q, pr, nb < nr ? nb : nr);
+            }
+            memcpy(p, o, na);
+            np = na;
+            memcpy(pr, q, nb);
+            nr = nb;
+        }
+        {
+            char w[120];
+            snprintf(w, sizeof w, "ii V I vi IV x4: voice leading moves %u semitones, root position %u", auto_mv, root_mv);
+            check(auto_mv * 2u < root_mv, w);
+        }
+        check((int)all, ".. every note one of the chord's, the lowest in the window, none below it");
+    }
+    {
+        cs_chord_t m7 = mk(0, MAJ7, -1, CSV_CLOSE, 0);
+        n = cs_voice(&m7, 0, CSV_OPEN, 0, 60, 0, 0, 0, o);
+        notes_are("Cmaj7 OPEN (drop 2): G C E B", o, n, (const int[]){67, 72, 76, 83, -1});
+        n = cs_voice(&m7, 0, CSV_SPREAD, 0, 60, 0, 0, 0, o);
+        notes_are("Cmaj7 SPREAD (drop 2 and 4): C G E B", o, n, (const int[]){60, 67, 76, 83, -1});
+        n = cs_voice(&c, 0, CSV_SPREAD, 0, 60, 0, 0, 0, o);
+        notes_are("C SPREAD (a triad, 1-5-10): C G E", o, n, (const int[]){60, 67, 76, -1});
+        m7.voicing = CSV_SPREAD;
+        n = cs_voice(&m7, 0, CSV_AUTO, 0, 60, 0, 0, 0, o);
+        notes_are("VOICING AUTO: the chord's own default (SPREAD)", o, n, (const int[]){60, 67, 76, 83, -1});
+    }
+    {
+        cs_chord_t am_g = mk(9, MIN, 7, CSV_CLOSE, 0);
+        n = cs_voice(&am_g, 0, CSV_AUTO, 0, 60, 1, 0, 0, o);
+        notes_are("Am/G with BASS: G below the window, then A C E", o, n, (const int[]){55, 69, 72, 76, -1});
+        n = cs_voice(&c, 0, CSV_AUTO, 0, 60, 1, 0, 0, o);
+        notes_are("C with BASS (no slash): its root below the window", o, n, (const int[]){48, 60, 64, 67, -1});
+        n = cs_voice(&am_g, 0, CSV_AUTO, 0, 60, 0, 0, 0, o);
+        notes_are("Am/G without BASS: the slash bass is not played", o, n, (const int[]){69, 72, 76, -1});
+    }
+    {
+        cs_chord_t c13 = mk(0, M13, -1, CSV_CLOSE, 0);
+        n = cs_voice(&c13, 0, CSV_AUTO, 0, 48, 1, 0, 0, o);
+        notes_are("C13 with BASS: seven notes (CS_VMAX)", o, n, (const int[]){36, 48, 52, 55, 58, 62, 69, -1});
+        n = cs_voice(&c13, 0, CSV_AUTO, 0, 120, 1, 0, 0, o);
+        for (i = 0, all = 1; i < n; i++)
+            all &= o[i] <= 127u && (!i || o[i] > o[i - 1u]);
+        check(all && n < 7u, "RANGE at the top: notes above 127 left out, the rest ascending");
+    }
+}
+
 int main(int argc, char **argv)
 {
     static const struct { uint32_t root; int iv[8]; int bass; const char *name; } NAMES[] = {
@@ -98,6 +228,7 @@ int main(int argc, char **argv)
                                              (CS_GENRE_FIRST[i] && CS_SET[CS_GENRE_FIRST[i] - 1u].genre >= i)))
             k = 0;
     check(k, "CS_GENRE_FIRST: each genre's first set, the sets in genre order");
+    voicing_tests();
     if (f)
         fclose(f);
     printf("chordset: %s\n", fails ? "FAILED" : "all ok");

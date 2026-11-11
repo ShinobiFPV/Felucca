@@ -150,3 +150,130 @@ bass:
         cs_cat(b, nb);
     }
 }
+
+/* ------------------------------------------------------------ voicing --- */
+/* A chord as it plays: its tones in the octave window RANGE, voiced, inverted, with voice leading.
+ *   RANGE  lo: the window's bottom note; the voicing's lowest note always lies in lo .. lo + 11, so a KEY (transpose)
+ *          moves the chord inside the window, never by octaves
+ *   VOICING CLOSE: the tones stacked in their order (root 3rd 5th 7th 9th ..), each the next of its pitch class above
+ *          the one before, from the inversion's tone; OPEN: drop 2 (the second highest an octave down); SPREAD: drop 2
+ *          and 4 (a triad: its middle tone an octave up, 1-5-10); AUTO: the chord's own default
+ *   INVERSION 0..3: that tone lowest (as far as the chord has tones); AUTO: of every inversion in the window, the one
+ *          closest to the chord before (the sum over each note of its distance to the nearest note of the other
+ *          chord, both ways), on a tie the chord's default inversion, then the lower; the first chord takes its default
+ *   BASS   the slash bass, else the root, in the octave below the window (left out of the voice leading): the one note
+ *          below lo (every note of the voicing is lo or above)
+ * At most CS_VMAX notes, ascending; notes outside 0..127 left out */
+enum { CSV_AUTO = 3 };                              /* VOICING: the chord's default */
+#define CS_INV_AUTO (-1)
+#define CS_VMAX (CS_MAXN + 1u)                      /* the voicing and its bass */
+
+static void cs_sort(int32_t *v, uint32_t n)
+{
+    uint32_t i, j;
+    for (i = 1; i < n; i++)
+        for (j = i; j > 0 && v[j - 1u] > v[j]; j--) {
+            int32_t x = v[j];
+            v[j] = v[j - 1u];
+            v[j - 1u] = x;
+        }
+}
+
+/* the chord's tones from inversion r, voiced, its lowest note in lo .. lo + 11 -> v (ascending), their number */
+static uint32_t cs_shape_at(const cs_chord_t *c, uint32_t key, uint32_t voicing, uint32_t r, int32_t lo, int32_t *v)
+{
+    uint32_t n = c->n, i;
+    int32_t prev = 0, shift;
+    for (i = 0; i < n; i++) {                       /* stacked from tone r, in the chord's order */
+        int32_t pc = (int32_t)((c->root + key + (uint32_t)c->iv[(r + i) % n]) % 12u);
+        if (!i)
+            v[0] = pc;
+        else {
+            v[i] = prev - (prev % 12) + pc;
+            if (v[i] <= prev)
+                v[i] += 12;
+        }
+        prev = v[i];
+    }
+    if (n >= 3u) {
+        if (voicing == CSV_SPREAD && n == 3u)
+            v[1] += 12;                             /* a triad: 1-5-10 */
+        else if (voicing == CSV_OPEN || voicing == CSV_SPREAD) {
+            v[n - 2u] -= 12;                        /* drop 2 */
+            if (voicing == CSV_SPREAD && n >= 4u)
+                v[n - 4u] -= 12;                    /* .. and 4 */
+        }
+        cs_sort(v, n);
+    }
+    shift = lo - v[0];                              /* the lowest note into lo .. lo + 11 */
+    shift = shift > 0 ? (shift + 11) / 12 * 12 : -(-shift / 12 * 12);
+    for (i = 0; i < n; i++)
+        v[i] += shift;
+    return n;
+}
+
+/* the distance between two chords: each note's distance to the nearest of the other, both ways */
+static uint32_t cs_distance(const int32_t *a, uint32_t na, const uint8_t *b, uint32_t nb)
+{
+    uint32_t i, j, s = 0;
+    for (i = 0; i < na; i++) {
+        uint32_t m = 0xFFFFu;
+        for (j = 0; j < nb; j++) {
+            int32_t d = a[i] - (int32_t)b[j];
+            uint32_t ad = (uint32_t)(d < 0 ? -d : d);
+            if (ad < m)
+                m = ad;
+        }
+        s += m;
+    }
+    for (j = 0; j < nb; j++) {
+        uint32_t m = 0xFFFFu;
+        for (i = 0; i < na; i++) {
+            int32_t d = a[i] - (int32_t)b[j];
+            uint32_t ad = (uint32_t)(d < 0 ? -d : d);
+            if (ad < m)
+                m = ad;
+        }
+        s += m;
+    }
+    return s;
+}
+
+/* chord c in key `key` (0..11, added to its root), voiced -> out (ascending, CS_VMAX), the number of notes. prev / np:
+ * the chord sounding before (its notes without the bass, ascending), for INVERSION AUTO; np 0 = none */
+static uint32_t cs_voice(const cs_chord_t *c, uint32_t key, uint32_t voicing, int32_t inv, int32_t lo, int bass,
+                         const uint8_t *prev, uint32_t np, uint8_t *out)
+{
+    int32_t v[CS_MAXN], best[CS_MAXN];
+    uint32_t n = c->n, r, i, m = 0, bd = 0xFFFFFFFFu, br = 0;
+    if (!n)
+        return 0;
+    if (voicing > CSV_SPREAD)
+        voicing = c->voicing;
+    if (inv >= 0 || !np) {                          /* fixed, or the first chord: one inversion */
+        br = inv >= 0 ? (uint32_t)inv : c->inv;
+        br = br < n ? br : n - 1u;
+        cs_shape_at(c, key, voicing, br, lo, best);
+    } else
+        for (r = 0; r < n; r++) {
+            uint32_t d;
+            cs_shape_at(c, key, voicing, r, lo, v);
+            d = cs_distance(v, n, prev, np) * 4u + (r != c->inv) * 2u;   /* (a tie: the default inversion) */
+            if (d < bd) {
+                bd = d;
+                br = r;
+                for (i = 0; i < n; i++)
+                    best[i] = v[i];
+            }
+        }
+    if (bass) {
+        int32_t pc = (int32_t)(((uint32_t)(c->bass >= 0 ? c->bass : c->root) + key) % 12u);
+        int32_t b = lo - 12 + (pc - lo % 12 + 24) % 12;   /* lo - 12 .. lo - 1 */
+        if (b >= 0 && b <= 127)
+            out[m++] = (uint8_t)b;
+    }
+    for (i = 0; i < n; i++)
+        if (best[i] >= 0 && best[i] <= 127 && (!m || out[m - 1u] != (uint8_t)best[i]))
+            out[m++] = (uint8_t)best[i];
+    return m;
+}
