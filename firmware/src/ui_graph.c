@@ -13,6 +13,7 @@
 /* the height ADSR and LFO are drawn on: 100 px, or (MENU > LARGE's strip: draw_graph) the strip's ~ 56 */
 static int32_t graph_ht = 100;
 #include "ui_fm6op.c"                                /* EDIT > OPERATOR, OP ENV, OPERATOR 2: FM6's operators (their charts below) */
+#include "ui_cpat.c"                                 /* ShinTech: SEQ > CHORD PAT .. PAT TOOLS (graph_cpat below) */
 
 /* Matches voice.c: attack is linear, decay and release are exponential
  * (env += (target - env) * k each tick, ~99 % after the set time). Time
@@ -505,6 +506,64 @@ static void graph_style(const track_t *t, uint16_t c)
             cv_rrect((int32_t)x + 1, 102 - (int32_t)h, len > 3u ? (int32_t)len - 2 : 2, (int32_t)h, 1,
                      e[2] >= 100u ? T_ACCENT : c, T_SURF);
         }
+}
+/* ShinTech CHORD patterns (ui_cpat.c): the cursor step's chord by name ("TIE", "REST"), the pattern and where the cursor
+ * is; the eight steps around it in two rows of four, each its chord's name (TIE a dash, REST nothing), the cursor
+ * THEME, a STYLE change a dot in its corner, a single note one below it, the step playing underlined in ACCENT; under
+ * them the whole pattern, a cell a step (a chord THEME, a TIE MID, a REST RAISE), the eight shown bracketed */
+static void graph_cpat(const track_t *t, uint16_t c)
+{
+    const cpat_t *p;
+    const cp_play_t *pl = &cpp[trk_index(t)];
+    char b[CS_NAME_MAX + 4u], cap[24];
+    uint32_t i, len, cur, page, w, x;
+    if (!t->p[P_CPAT]) {
+        panel_note("NO CHORD PATTERN", "[K1] PICK ONE OF 64", 0);
+        return;
+    }
+    if (!(p = cpe_pat())) {
+        panel_note("LOADING", 0, 0);
+        return;
+    }
+    len = cp_len(p);
+    cur = cpe_cursor(p);
+    page = cur / 8u * 8u;
+    cpe_chord_name(t, p, &p->step[cur], b);
+    if (!b[0])
+        str_cpy(b, p->step[cur].chord == CPC_TIE ? "TIE" : "REST", sizeof b);
+    cv_text_on(14, 8, &AF_M, b, p->step[cur].chord > CPC_TIE ? T_TEXT : T_MID, T_SURF);
+    GFX_HOOK_ALIGN(0, 0, 0, 8 + AF_M.asc, AL_B, "pattern caption on the name's baseline");
+    str_cpy(cap, "PAT ", sizeof cap);
+    fmt_int(cap + 4, t->p[P_CPAT]);
+    str_cpy(cap + str_len(cap), cp_hand_in ? "  HAND" : "  ", sizeof cap - str_len(cap));
+    str_cpy(cap + str_len(cap), N_DIV[p->div % 10u], sizeof cap - str_len(cap));
+    cv_text_r(226, 8 + AF_M.asc - AF_S.asc, &AF_S, cap, T_MID, T_SURF);
+    for (i = 0; i < 8u && page + i < len; i++) {        /* the eight steps around the cursor */
+        const cp_step_t *st = &p->step[page + i];
+        int32_t cx = 13 + (int32_t)(i % 4u) * 54, cy = 30 + (int32_t)(i / 4u) * 34;
+        uint16_t fill = page + i == cur ? c : T_RAISE, ink = page + i == cur ? T_SURF : T_TEXT;
+        cv_rrect(cx + 1, cy, 52, 28, 4, fill, T_SURF);
+        cpe_chord_name(t, p, st, b);
+        if (!b[0] && st->chord == CPC_TIE)
+            str_cpy(b, "-", sizeof b);
+        if (b[0])
+            cv_free_text(cx + 1 + ink_in(&AF_S, b, 52), cy + CAP_IN(S, 28), &AF_S, b, ink, fill, 50);
+        if (st->style)
+            cv_rect(cx + 47, cy + 3, 3, 3, page + i == cur ? T_SURF : T_ACCENT);
+        if (st->note)
+            cv_rect(cx + 47, cy + 22, 3, 3, page + i == cur ? T_SURF : T_MID);
+        if (pl->on && pl->id == cp_ui_id && pl->step == page + i)
+            cv_rect(cx + 4, cy + 29, 46, 2, T_ACCENT);
+    }
+    GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H | AL_CELLS | AL_N(4), "pattern step cells centred");
+    w = 216u / len;
+    x = 13u + (216u - len * w) / 2u;
+    for (i = 0; i < len; i++) {                         /* the whole pattern */
+        uint8_t ch = p->step[i].chord;
+        cv_rect((int32_t)(x + i * w), 100, w > 1u ? (int32_t)w - 1 : 1, 5,
+                ch > CPC_TIE ? c : ch == CPC_TIE ? T_MID : T_RAISE);
+    }
+    cv_rect((int32_t)(x + page * w), 107, (int32_t)((len - page < 8u ? len - page : 8u) * w) - 1, 1, T_TEXT);
 }
 /* the four sends as faders under their cards: a RAISE slot, the THEME fill from the bottom, a cap */
 static void graph_fx(const track_t *t, uint16_t c)
@@ -1275,6 +1334,13 @@ static uint32_t graph_signature(void)
             h = (h ^ chord_last[song.sel].note[i]) * 16777619u;
         h ^= (uint32_t)t->engine * 389u;             /* (MONO and kits follow the sounding engine) */
         h ^= (uint32_t)(chord_last[song.sel].bass + 1) * 977u;   /* (ShinTech: a SET chord's slash bass) */
+    }
+    if (cpe_page(pg->graph)) {                       /* ShinTech: the pattern, the cursor, the step playing */
+        const cpat_t *p = cp_get(cp_ui_id);
+        h = (h ^ (cp_ui_id + 7u * cpe_cur + 131u * cpp[song.sel].step + 1031u * cpp[song.sel].on + 9973u * cpe_on_pat +
+                  65537u * cp_hand_in)) * 16777619u;
+        if (p)
+            h = fnv(h, p, sizeof *p);
     }
     if (pg->graph == GR_STYLE)                       /* ShinTech: the step playing, the chord's size */
         h = (h ^ (sty[song.sel].on + 2u * sty[song.sel].count + 1031u * sty[song.sel].n)) * 16777619u;
@@ -2367,6 +2433,13 @@ static void draw_graph(void)
         case GR_STYLE:                                /* ShinTech CHORD styles */
             cv_oy = 0;
             graph_style(t, c);
+            break;
+        case GR_CPAT:                                 /* ShinTech CHORD patterns */
+        case GR_CPAT2:
+        case GR_CPAT3:
+        case GR_CTOOLS:
+            cv_oy = 0;
+            graph_cpat(t, c);
             break;
         case GR_FX:
             graph_fx(t, c);

@@ -107,14 +107,14 @@ int main(void)
     /* the user presets' FM6 patches (1.0.3) in the two sectors of the retired FM6 bank: 0x9F000 (after the projects)
      * and 0xFE000 (after the settings); the two objects share them, told apart by the commit record's type */
     bad += check("FM6 user preset patches (and the retired bank) in the sectors 0x9F000 / 0xFE000",
-                 OBJ_UPFM6 == OBJ_COUNT - 3 && OBJ_FM6BANK == OBJ_UPFM6 - 1 && st_sector(OBJ_UPFM6, 0) == 0x9F000u &&
+                 OBJ_UPFM6 == OBJ_AUTOSAVE - 1 && OBJ_FM6BANK == OBJ_UPFM6 - 1 && st_sector(OBJ_UPFM6, 0) == 0x9F000u &&
                      st_sector(OBJ_PROJECT0 + 3, 1) + 4096 == 0x9F000u && st_sector(OBJ_UPFM6, 1) == 0xFE000u &&
                      st_sector(OBJ_FM6BANK, 0) == 0x9F000u && st_sector(OBJ_FM6BANK, 1) == 0xFE000u &&
                      st_sector(OBJ_SETTINGS, 1) + 4096 == 0xFE000u);
     /* the autosave (1.2, project.c): its own pair 0xE5000 / 0xE6000, above the OTA staging, apart from every other
      * object; a save there touches no other object */
     {
-        uint32_t o, c, ok = OBJ_AUTOSAVE == OBJ_COUNT - 2 && st_sector(OBJ_AUTOSAVE, 0) == 0xE5000u &&
+        uint32_t o, c, ok = OBJ_AUTOSAVE == OBJ_PROJEXT - 1 && st_sector(OBJ_AUTOSAVE, 0) == 0xE5000u &&
                                st_sector(OBJ_AUTOSAVE, 1) == 0xE6000u;
         static uint8_t snap[0x100000];
         for (o = 0; o < OBJ_AUTOSAVE; o++)
@@ -129,7 +129,7 @@ int main(void)
      * and the FM6 voice bank (0xE7000); a save there touches nothing else, and a whole payload (3584) leaves bytes
      * 0xF00..0xF07 of its sector erased (the update loader reads an update record there) */
     {
-        uint32_t o, c, ok = OBJ_PROJEXT == OBJ_COUNT - 1 && st_sector(OBJ_PROJEXT, 0) == 0xE8000u &&
+        uint32_t o, c, ok = OBJ_PROJEXT == OBJ_CPAT0 - 1 && st_sector(OBJ_PROJEXT, 0) == 0xE8000u &&
                                st_sector(OBJ_PROJEXT, 1) == 0xE9000u;
         static uint8_t snap[0x100000], px_a[3584], px_got[3584];
         for (o = 0; o < OBJ_PROJEXT; o++)
@@ -142,6 +142,34 @@ int main(void)
         for (o = 0xF00u; o < 0xF08u; o++)                  /* (both copies) */
             ok &= nor[0xE8000u + o] == 0xFFu && nor[0xE9000u + o] == 0xFFu;
         bad += check("ShinTech: the project extension in its own sectors 0xE8000 / 0xE9000, nothing else touched, 0xF00.. erased", ok);
+    }
+    /* ShinTech: the chord pattern bank (cpat_store.c): seven objects A / B in 0xEA000..0xF7FFF, each its own two sectors,
+     * apart from every other object; a save of one touches nothing else, and its payload (3284) leaves 0xF00.. erased */
+    {
+        uint32_t o, c, j, ok = OBJ_CPAT0 + 7u == OBJ_COUNT;
+        static uint8_t snap[0x100000], cp_a[3284], cp_got[3284];
+        for (o = OBJ_CPAT0; o < OBJ_COUNT; o++)
+            for (c = 0; c < 2u; c++) {
+                uint32_t s = st_sector(o, c);
+                ok &= s >= 0xEA000u && s + 4096u <= 0xF8000u;
+                for (j = 0; j < OBJ_COUNT; j++)
+                    if (j != o)
+                        ok &= st_sector(j, 0) != s && st_sector(j, 1) != s;
+                ok &= st_sector(o, !c) != s;
+            }
+        for (o = 0; o < OBJ_CPAT0; o++)
+            for (c = 0; c < 2u; c++)
+                ok &= st_sector(o, c) + 4096u <= 0xEA000u || st_sector(o, c) >= 0xF8000u;
+        for (o = 0; o < sizeof cp_a; o++) cp_a[o] = (uint8_t)(o * 13u + 5u);
+        memcpy(snap, nor, sizeof nor);
+        ok &= st_save(OBJ_CPAT0 + 3u, cp_a, sizeof cp_a) == 0 && st_load(OBJ_CPAT0 + 3u, cp_got, sizeof cp_got) == (int)sizeof cp_a &&
+              !memcmp(cp_got, cp_a, sizeof cp_a);
+        for (o = 0; o < sizeof nor; o += 4096u)          /* only object 3's two sectors may have changed */
+            if (o != st_sector(OBJ_CPAT0 + 3u, 0) && o != st_sector(OBJ_CPAT0 + 3u, 1))
+                ok &= !memcmp(snap + o, nor + o, 4096u);
+        for (o = 0xF00u; o < 0xF08u; o++)
+            ok &= nor[st_sector(OBJ_CPAT0 + 3u, 0) + o] == 0xFFu && nor[st_sector(OBJ_CPAT0 + 3u, 1) + o] == 0xFFu;
+        bad += check("ShinTech: the chord pattern bank, 7 objects in 0xEA000..0xF7FFF, a save touches its own, 0xF00.. erased", ok);
     }
     {
         static uint8_t bank[3472], back[3728], tab[3728];

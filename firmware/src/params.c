@@ -204,6 +204,7 @@ static const param_desc_t TP[P_COUNT] = {
     [P_CVAR] = PD("VAR", F_INT, 0, (int16_t)(CST_NVAR - 1u), 0),    /* (shown 1..12) */
     [P_CHOLD] = PE("CHOLD", N_ONOFF, 0),                            /* (not HOLD: the ARP's P_AHOLD has it) */
     [P_CSTRM] = PD("STRUM", F_INT, 0, 60, 0),                       /* ms between a strum's notes, 0 AUTO */
+    [P_CPAT] = PD("CPAT", F_INT, 0, 64, 0),                         /* ShinTech CHORD pattern: OFF, 1..64 (cpat.c) */
 };
 
 /* the INSERT's A B C as its TYPE means them (TP's ranges and defaults): the drives DRIVE TONE LEVEL, CRUSH BITS RATE
@@ -370,9 +371,10 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         fmt_named = 1;
         return;
     }
-    if (d == &TP[P_CVAR] || d == &TP[P_CSTRM]) {      /* ShinTech CHORD: VAR 1..12; STRUM AUTO, or its ms */
-        if (d == &TP[P_CSTRM] && !v) {
-            str_cpy(val, "AUTO", 6);
+    if (d == &TP[P_CVAR] || d == &TP[P_CSTRM] || d == &TP[P_CPAT]) {   /* ShinTech CHORD: VAR 1..12; STRUM AUTO,
+                                                                       * or its ms; CPAT OFF, 1..64 */
+        if ((d == &TP[P_CSTRM] || d == &TP[P_CPAT]) && !v) {
+            str_cpy(val, d == &TP[P_CPAT] ? "OFF" : "AUTO", 6);
             fmt_named = 1;
             return;
         }
@@ -490,7 +492,8 @@ enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE,
 enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK };   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
        GR_SLCR, GR_MOD, GR_PATS, GR_SONG, GR_TOOLS, GR_CHORD, GR_SLICES, GR_EVENTS,
-       GR_FMOP, GR_FMOP2, GR_FMENV, GR_INS, GR_STYLE };   /* (GR_STEPS: SEQ TOOLS' knobs; GR_FMOP..: FM6's operator pages, ui_fm6op.c) */
+       GR_FMOP, GR_FMOP2, GR_FMENV, GR_INS, GR_STYLE, GR_CPAT, GR_CPAT2, GR_CPAT3, GR_CTOOLS };   /* (GR_CPAT..: ShinTech's
+                                                                                * chord pattern pages, ui_cpat.c) */   /* (GR_STEPS: SEQ TOOLS' knobs; GR_FMOP..: FM6's operator pages, ui_fm6op.c) */
 
 typedef struct {
     const char *title;
@@ -552,6 +555,12 @@ static const page_t PAGES[] = {
                                                              * (ui.c detail_on, ui_input.c sd_turn) */
     {"AUTOMATION", FAM_SEQ, SC_TRACK, GR_EVENTS, {0xFF, 0xFF, 0xFF, 0xFF}},  /* the locks, events, CHANCE and RATCH as a
                                                                              * list, PLAY and CLEAR (ui_events.c) */
+    /* ShinTech CHORD patterns (ui_cpat.c; a CHRD SET track only: ui.c page_visible): CPAT, then the pattern's cursor
+     * step, its setup, its tools */
+    {"CHORD PAT", FAM_SEQ, SC_TRACK, GR_CPAT, {P_CPAT, 0xFF, 0xFF, 0xFF}},
+    {"PAT STEP", FAM_SEQ, SC_TRACK, GR_CPAT2, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"PAT SETUP", FAM_SEQ, SC_TRACK, GR_CPAT3, {0xFF, 0xFF, 0xFF, 0xFF}},
+    {"PAT TOOLS", FAM_SEQ, SC_TRACK, GR_CTOOLS, {0xFF, 0xFF, 0xFF, 0xFF}},
     /* HOME's pages (1.2): HOME tapped on HOME the MIXER (up to 1.1.5 GLO's; LEVEL PAN REV MUTE), again CLOCK (up to 1.1.5
      * GLO > GLOBAL; its TUNE is MENU > AUDIO's now), again HOME (ui.c home_tap) */
     {"MIXER", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},

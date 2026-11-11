@@ -45,6 +45,7 @@ static int chord_kit(const track_t *t)
  * C4..B4: seq.c cset_key gives them 60..71; MIDI IN any octave), in its KEY, voiced (chordset.c cs_voice: VOICING,
  * INVERSION or the voice leading from chord_vl, the RANGE window, BASS) */
 static int chord_set_on(const track_t *t) { return t->p[P_CHRD] == CH_SET && !chord_kit(t); }
+static const cs_chord_t *chord_hand;    /* set: chord_set_make voices this chord instead of the set's (chord_build_hand) */
 static uint32_t chord_set_make(const track_t *t, uint32_t note, uint8_t *out, int32_t *rp, uint16_t *maskp,
                                int8_t *bp)
 {
@@ -53,7 +54,9 @@ static uint32_t chord_set_make(const track_t *t, uint32_t note, uint8_t *out, in
     uint32_t n, i, key = (uint32_t)clamp(t->p[P_CKEY], 0, 11), pc;
     int32_t lo = CRNG_LO + clamp(t->p[P_CRNG], 0, 48), inv = t->p[P_CINV] > 0 ? t->p[P_CINV] - 1 : CS_INV_AUTO;
     *bp = -1;
-    if (!cs_get((uint32_t)clamp(t->p[P_CSET], 0, CS_NSETS - 1), note % 12u, &c)) {
+    if (chord_hand)                                     /* (a chord pattern's hand-played chord: chord_build_hand) */
+        c = *chord_hand;
+    else if (!cs_get((uint32_t)clamp(t->p[P_CSET], 0, CS_NSETS - 1), note % 12u, &c)) {
         out[0] = (uint8_t)note;
         *rp = (int32_t)note;
         *maskp = 0;
@@ -214,6 +217,16 @@ static uint32_t chord_build(track_t *t, uint32_t root, uint8_t *out)
             chord_last[k].note[i] = i < m ? out[i] : 0u;
         chord_last[k].gen++;
     }
+    return m;
+}
+
+/* ShinTech CHORD patterns: a hand-played chord c (cpat.c) voiced and kept as a SET chord is (chord_build) */
+static uint32_t chord_build_hand(track_t *t, const cs_chord_t *c, uint8_t *out)
+{
+    uint32_t m;
+    chord_hand = c;
+    m = chord_build(t, 60u, out);
+    chord_hand = 0;
     return m;
 }
 

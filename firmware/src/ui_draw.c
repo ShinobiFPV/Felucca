@@ -508,6 +508,13 @@ static void span_fop(const card_span_t *sp, int32_t v, char *val)       /* FM6's
     uint32_t ic;
     (void)fop_card_at((uint32_t)sp->ctx, v, &l, val, &u, &r, &ic);
 }
+static void span_cpe(const card_span_t *sp, int32_t v, char *val)       /* ShinTech: a chord pattern card = v */
+{
+    const char *l, *u;
+    int32_t r;
+    uint32_t ic;
+    (void)cpe_card_at((uint32_t)sp->ctx, v, &l, val, &u, &r, &ic);
+}
 static void card_span_by(void (*fn)(const card_span_t *, int32_t, char *), const void *p, int32_t lo, int32_t hi, int32_t ctx)
 {
     card_span.fn = fn;
@@ -1176,6 +1183,41 @@ static void draw_columns(void)
         return;
     }
 #endif
+    if (cpe_page(cur_page()->graph)) {                   /* ShinTech: the chord pattern pages (ui_cpat.c) */
+        (void)cpe_pat();
+        for (c = 0; c < 4u; c++) {
+            const char *lb, *u;
+            int32_t r, lo, hi;
+            uint32_t ic, f = cpe_field(c);
+            int on;
+            if (f == CPF_PAT) {                           /* (CPAT: the track's parameter, as any) */
+                int16_t *vp;
+                const param_desc_t *d = page_desc(cur_page(), c, &vp);
+                param_format(d, *vp, val, &unit);
+                card_mot_of(vp);
+                card_span_of(d);
+                draw_column(c, d->label, val, unit, *vp ? VAL(c) : T_DIM, RATIO(d, *vp), ICON_X_PATTERN);
+                continue;
+            }
+            if (f == CPF_NONE) {
+                draw_column(c, "", "", "", T_THEME, -1, ICON_AUTO);
+                continue;
+            }
+            if ((act_cols() >> c) & 1u) {
+                draw_act_column(c, cpe_act_name(c), T_THEME, ICON_AUTO);
+                continue;
+            }
+            if (!cp_get(cp_ui_id)) {
+                draw_column(c, "", "", "", T_DIM, -1, ICON_NONE);
+                continue;
+            }
+            on = cpe_card(c, &lb, val, &u, &r, &ic);
+            (void)cpe_value(f, cp_get(cp_ui_id), &lo, &hi);
+            card_span_by(span_cpe, 0, lo, hi, (int32_t)c);
+            draw_column(c, lb, val, u, on ? VAL(c) : T_DIM, r, ic);
+        }
+        return;
+    }
     if (fop_page(cur_page()->graph)) {                   /* FM6: OP, then three of its bytes (ui_fm6op.c) */
         for (c = 0; c < 4u; c++) {
             const char *lb, *u;

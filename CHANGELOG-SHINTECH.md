@@ -7,6 +7,48 @@ release notes are in its wiki. Projects that use the new features will not open 
 
 ## Unreleased
 
+### Phase 3: chord pattern sequencer
+
+- **64 chord patterns, up to 64 steps each** (the full count the storage plan allowed), one bank for the whole device
+  (as user presets are, not a project's). A pattern: LEN 1..64 steps of DIV (1/4 by default; any of N_DIV), the chord
+  set and KEY it was written with, NEXT (LOOP, or the pattern that follows it), up to 16 chords played by hand, and per
+  step a chord (REST, TIE, chord 1..12 of the set, hand chord H1..H16), a STYLE (KEEP, OFF, or a style and variation),
+  a single note, and a tempo (KEEP, 40..240 BPM). `firmware/src/cpat.c`.
+- **Playing:** a new track parameter `CPAT` (OFF, 1..64; id 116, P_E0 117, P_COUNT 125, in the project extension) names
+  the pattern a CHRD SET track plays while the transport runs: from step 1 with PLAY, its chords voiced and led as the
+  keys' are, to the style when the step's (or the track's) STYLE is on, else held as a key holds them (the ARP takes
+  them), every note to MIDI OUT on the track's channel. A step's STYLE sets STYLE / VAR from it on; a tempo sets BPM
+  (internal clock only); a single note plays one step long. At its end NEXT follows, its own set and KEY applied. CPAT
+  may be locked or automated (a lock switches the pattern from that step), and the external clock steps it as it does
+  the sequencer.
+- **SONG:** each section plays the chord pattern its slot's project was saved with (CPAT there), from its step 1 with
+  the section; a silent lane plays none.
+- **Recording:** with the track armed and the transport running (no song), a chord key goes into the step playing (or
+  the next, past its half) with STYLE / VAR as they are then; the steps that start while it is held become TIEs, the
+  first after its release a REST. C5..G5's white keys write their note. While a track records its chord pattern, the
+  same keys no longer record into its own steps.
+- **Pages:** SEQ > (after AUTOMATION) **CHORD PAT** (CPAT, STEP, CHORD, STYLE), **PAT STEP** (STEP, NOTE, TEMPO),
+  **PAT SETUP** (LEN, DIV, NEXT, INPUT SET / HAND), **PAT TOOLS** (ON STEP / PAT, COPY, PASTE, CLEAR: pick with the knob,
+  OCT+ does it); CHRD SET tracks only. The panel shows the cursor step's chord name, the eight steps around it as named
+  cells (the cursor, a STYLE change, a note, the step playing marked) and the whole pattern as a strip. The PRESETS knob
+  moves the cursor. HELP has a hint for each.
+- **Step entry** (armed, stopped, on those pages): a chord key writes its chord at the cursor and moves on; C5..G5 write
+  their note (the cursor stays); INPUT HAND: the keys play their own notes and a chord held on them, when let go, is
+  stored as a hand chord (root and intervals, voiced later like the set's) and written at the cursor. Each edit, key
+  and tool is one undo (SAVE held: UNDO_CPAT; held again: redo).
+- **Storage:** the bank is 7 flash objects of 10 patterns (3,284 B each), A / B, in 14 sectors 0xEA000..0xF7FFF of
+  felucca-bsp's FL_XDATA1 (no data used them; bytes 0xF00.. stay erased). A RAM cache (12 patterns, in `.pool`) holds
+  what the tracks may play next and what the pages edit, filled by the main loop (`cpat_store.c` cpat_poll); an edit is
+  written back 2 s after it, only when the music is quiet (stopped, no key, nothing sounding: as the autosave), never
+  while playing (an erase silences the audio). A power cut during a write leaves the pattern as it was.
+- Tests: `tests/cpat_test.c` (exact chords at their steps within a block, TIE / REST, notes, STYLE, tempo, hand chords,
+  NEXT, CPAT changed, the cache, STOP, recording, SONG sections, the pages, knobs, step entry, HAND input, tools, undo /
+  redo), `tests/cpat_store_test.c` (all 64 through a power cycle, an object's other patterns kept, nothing else written,
+  a power cut at each of a write's programs, a damaged newest copy, writes only when quiet). Renders: `chord_pat`,
+  `pat_tools`. Cost: 9.4 KB of code, 64 B of RAM, 4.9 KB of pool.
+- Not yet: hand chords are entered step by step (INPUT HAND), not recorded live; patterns are not in the editor's
+  backup (Phase 5).
+
 ### Phase 2: styles and variations
 
 - **Styles.** SCL > CHORD > CHORD SET > VOICING > **STYLE** (CHRD SET only): `STYLE` OFF / ARP1 ARP2 (arpeggios) /

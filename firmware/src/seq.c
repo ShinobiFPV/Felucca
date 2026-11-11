@@ -219,7 +219,11 @@ static void arp_remove(track_t *t, uint32_t note)
 #define ND_NONE 0u                      /* track_t nd_late / nd_early: nothing latched (seq_tick; else its seq_pos + 1) */
 static void rec_note(track_t *t, uint32_t note, uint32_t vel);
 static void rec_release(track_t *t, uint32_t note);
-static int rec_on(const track_t *t) { return ((song.rec >> trk_index(t)) & 1u) && song.playing && !chain.running; }
+/* (ShinTech CHORD: a CHRD SET track playing a chord pattern records into the pattern, cpat.c, not into its steps) */
+static int rec_on(const track_t *t)
+{
+    return ((song.rec >> trk_index(t)) & 1u) && song.playing && !chain.running && !(t->p[P_CPAT] && chord_set_on(t));
+}
 
 #include "motion.c"
 
@@ -700,6 +704,19 @@ static void input_off(track_t *t, uint32_t note)
 }
 
 #include "style.c"                              /* ShinTech CHORD styles: what a chord key plays with STYLE on */
+#include "cpat.c"                               /* ShinTech CHORD patterns: their player and recording */
+/* once a block (seq_tick's loop): the chord patterns (cpat.c), then the styles playing (style.c); one call, out of the
+ * audio ISR's loop (tests/target_budget.py) */
+static __attribute__((noinline)) void chord_blocks(uint32_t n, uint32_t seq_n, uint32_t clock_mode)
+{
+    uint32_t i;
+    for (i = 0; i < NTRK; i++)
+        if (cp_busy(i))
+            cp_block(&trk[i], n, seq_n, clock_mode);
+    for (i = 0; i < NTRK; i++)
+        if (sty_busy(i))
+            sty_block(&trk[i], n, seq_n, clock_mode);
+}
 
 /* the effect of key k in the FX layer (PF_N none): the white keys F3 .. G5 the map's (perf_map: the settings,
  * ui_layer.c; by default 1.1.5's ten, FLANGER, PHASER, REV / ECHO THROW), black keys 1..4 the track mutes */
@@ -814,14 +831,20 @@ static __attribute__((noinline)) uint32_t cset_key(track_t *t, uint32_t k)
  * a SET chord with STYLE on goes to the style (style.c sty_chord; kb_sty bit k), which plays it; with CHOLD the
  * chord held before ends (sty_unlatch) */
 static uint32_t kb_sty;
-static void key_on(uint32_t k, track_t *t)
+static __attribute__((noinline)) void key_on(uint32_t k, track_t *t)   /* (once a press: out of the ISR's key loop) */
 {
-    uint32_t n, i, mc = trk_midi_ch(trk_index(t)), vel = kb_vel, set = chord_set_on(t) && !((kb_single >> k) & 1u);
-    if (((kb_single >> k) & 1u) && chord_set_on(t)) {   /* (ShinTech CHORD: C5 .. G5's single notes) */
+    uint32_t one = ((kb_single >> k) & 1u) || cp_hand_in, n, i, mc = trk_midi_ch(trk_index(t)), vel = kb_vel;
+    uint32_t set = chord_set_on(t) && !one;
+    if (one && chord_set_on(t)) {                       /* (ShinTech CHORD: C5 .. G5's single notes; the pattern pages'
+                                                         * INPUT HAND: every key its note) */
         kb_chord[k][0] = kb_note[k];
         n = 1;
+        if (!cp_hand_in)
+            cp_rec_note(t, kb_note[k]);                 /* (recording a chord pattern: into it) */
     } else
         n = chord_build(t, kb_note[k], kb_chord[k]);
+    if (set && kb_note[k] >= 60u && kb_note[k] < 72u)
+        cp_rec_chord(t, CPC_SET + kb_note[k] - 60u, k + 1u);   /* (recording a chord pattern: into it) */
     kb_chn[k] = 0;
     kb_sty &= ~(1u << k);
     if (set && sty_wants(t)) {
@@ -847,16 +870,17 @@ static void key_on(uint32_t k, track_t *t)
 
 /* key k is up: the notes it started end, but those another key still holds. ShinTech CHORD: a style's chord
  * stops (or plays on: CHOLD); a SET chord with CHOLD sounds on (style.c sty_latch) */
-static void key_off(uint32_t k, track_t *t)
+static __attribute__((noinline)) void key_off(uint32_t k, track_t *t)
 {
     uint32_t n = kb_chn[k], i, mc = trk_midi_ch(trk_index(t));
     kb_chn[k] = 0;
+    cp_rec_release(t, k + 1u);                          /* (recording a chord pattern: a REST after it) */
     if ((kb_sty >> k) & 1u) {
         kb_sty &= ~(1u << k);
         (void)sty_release(t, k + 1u, 0);
         return;
     }
-    if (n && t->p[P_CHOLD] && chord_set_on(t) && !((kb_single >> k) & 1u)) {
+    if (n && t->p[P_CHOLD] && chord_set_on(t) && !((kb_single >> k) & 1u) && !cp_hand_in) {
         sty_latch(t, kb_chord[k], n);
         return;
     }
@@ -926,7 +950,8 @@ static void keyboard_block(void)
                 kb_note[k] = KB_SILENT;
             else if (song.grid == 1u)             /* the DRUM grid: a lane key plays its lane, the rest are the UI's */
                 kb_note[k] = grid_key_note(k);
-            else if (chord_set_on(&trk[kb_trk[k]]))   /* ShinTech CHORD: chords, shortcuts, single notes */
+            else if (chord_set_on(&trk[kb_trk[k]]) && !cp_hand_in)   /* ShinTech CHORD: chords, shortcuts, single
+                                                                      * notes (INPUT HAND: the keys' notes) */
                 kb_note[k] = (uint8_t)cset_key(&trk[kb_trk[k]], k);
             else
                 kb_note[k] = (uint8_t)kb_map(&trk[kb_trk[k]], k);
@@ -997,7 +1022,8 @@ static void seq_start(void)
     clk_pos = CLK_START;                           /* the metronome's first beat with step 0 */
     song.playing = 1;
     slicer_start();                                /* slicer.c: its step 0 with the sequencer's */
-    sty_restart();                                 /* ShinTech CHORD: a style playing from its step 1 too */
+    sty_restart();                                 /* ShinTech CHORD: a style playing from its step 1 too, */
+    cp_restart_all();                              /* the chord patterns */
     perf_start();                                  /* perform.c: its 1/16 grid too */
 }
 
@@ -1022,6 +1048,7 @@ static void seq_stop(void)
         for (i = 0; i < NPART; i++)                /* its sounding note too (HOLD keeps the latched chord) */
             if (trk[i].arp_note)
                 arp_off(&trk[i]);
+    cp_stop_all();                                 /* ShinTech CHORD: the chord patterns' notes end */
     for (i = 0; i < NTRK; i++) {
         seq_release(&trk[i]);
         trk[i].rh_n = 0;                           /* a recorded note held over the stop: as far as it got */
@@ -1513,7 +1540,8 @@ static void events_block(uint32_t n)
         if ((pr >> i) & 1u) {
             midi_forget_track(i);
             trk_all_off(t);
-            sty_forget(i);                            /* (ShinTech CHORD: a style's notes) */
+            sty_forget(i);                            /* (ShinTech CHORD: a style's notes, a pattern's) */
+            cp_forget(i);
             t->nheld = 0;
             t->arp_phys = 0;
             arp_forget(t);
@@ -1574,9 +1602,7 @@ static void events_block(uint32_t n)
         uint32_t arp_n = clock_mode ? midi_grid_advance(&midi_arp_grid[i], seq_n, (uint32_t)trk[i].p[P_ARATE]) : n;
         arp_step(&trk[i], arp_n, clock_mode && song.playing ? arp_n : n);
     }
-    for (i = 0; i < NTRK; i++)                        /* ShinTech CHORD: the styles playing (style.c) */
-        if (sty_busy(i))
-            sty_block(&trk[i], n, seq_n, clock_mode);
+    chord_blocks(n, seq_n, clock_mode);               /* ShinTech CHORD: the chord patterns, the styles */
     beat_pos += clock_mode ? midi_grid_advance(&midi_beat_grid, seq_n, 0u) : n; /* ARP LED beat */
     if (beat_pos >= beat_samples()) {
         beat_pos -= beat_samples();

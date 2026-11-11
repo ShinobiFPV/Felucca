@@ -91,6 +91,11 @@ FUNB slot as empty.
 0 = the variation's own). Like the six before them they live in the project extension (FUNB), not in the object. No
 command changed.
 
+**ShinTech CHORD patterns (125 parameters):** `CPAT` (116, the chord pattern the track plays: 0 OFF, 1..64) before the
+engine parameters, which moved to 117..124: P_COUNT 125, P_E0 117. The 64 chord patterns themselves are a bank of their
+own in flash (firmware/src/cpat_store.c), not part of a project or a backup; no command reads or writes them yet
+(Phase 5).
+
 ## Framing
 
 A request is `F0 7D 46 4C <cmd> <args...> F7`:

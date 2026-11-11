@@ -1333,6 +1333,7 @@ static uint32_t chain_prepare(void)
                 memcpy(chain.source[i].step[k], p->t[k].step, sizeof p->t[k].step);
                 proj_steps(chain.source[i].step[k]);
                 chain.source[i].qnt[k] = p->t[k].p[P_SQNT] != 0;
+                chain.source[i].cpat[k] = (uint8_t)clamp(p->t[k].p[P_CPAT], 0, CP_N);   /* (ShinTech: its extension's) */
                 for (j = 0; j < 4u; j++)
                     chain.source[i].timing[k][j] = (int16_t)clamp(p->t[k].p[P_SLEN + j],
                         TP[P_SLEN + j].min, TP[P_SLEN + j].max);
@@ -1460,8 +1461,10 @@ static int autosave_quiet(void)
 static void autosave_hold(void) { as.t = fm1_ms; }   /* the editor's transfers: their staging RAM is proj_wire */
 
 /* main loop, every pass (after settings_poll) */
+static void cpat_poll(void);                      /* (ShinTech: cpat_store.c, below) */
 static void autosave_poll(void)
 {
+    cpat_poll();                                  /* (ShinTech CHORD patterns: the cache, edits written back) */
 #if FELUCCA_FLASH
     uint32_t sig;
     if (!flash_ok || fm1_ms - as.poll < AS_POLL_MS)
@@ -1528,4 +1531,5 @@ static int autosave_boot(int allowed)
 _Static_assert(sizeof(project_store_t) <= ST_PAYLOAD_MAX, "project does not fit one flash sector");
 _Static_assert(sizeof(persist_t) <= ST_PAYLOAD_MAX, "settings do not fit one flash sector");
 #endif
+#include "cpat_store.c"                 /* ShinTech CHORD patterns: their bank in flash, the cache */
 #endif /* PROJ_HOST */

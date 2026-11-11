@@ -62,6 +62,11 @@
 #                   rates only), strums STRUM ms apart up and down, lengths, a release stops it, CHOLD, a chord changed
 #                   on the go, VAR, STYLE OFF, PLAY, the external clock's pulses, every variation balanced; the data
 #                   (tools/shintech/gen_styles.py -> build/gen/chord_styles.h): the grammar, the checks, today's table.
+# ShinTech CHORD patterns (tests/cpat_test.c, tests/cpat_store_test.c): the pattern player (firmware/src/cpat.c) on the real
+#                   sequencer, keys and MIDI OUT (chords at their steps, TIE / REST, single notes, a step's STYLE and
+#                   tempo, hand chords, NEXT, CPAT changes, a SONG section's pattern, live recording), the SEQ > CHORD PAT
+#                   pages (ui_cpat.c: knobs, step entry, INPUT HAND, PAT TOOLS, undo), and the bank on simulated NOR
+#                   (cpat_store.c: power cycles, power cuts at every write, a damaged copy, writes only when quiet).
 # ShinTech CHORD sets (tests/chordset_test.c, tests/shintech/test_chordsets.py): the factory chord sets
 #                   (tools/shintech/gen_chords.py -> build/gen/chord_sets.h) read back, chordset.c's names (a table of
 #                   shapes; every factory chord's name parsed back to its notes), the symbol grammar, the generator's
@@ -302,6 +307,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "ShinTech CHORD styles: timing at three tempi, SWING, triplets, strums, release, HOLD, chord changes, VAR, PLAY, external clock, MIDI IN, all 108" "$OUT/style_test"
     run "ShinTech CHORD styles: the event grammar, the generator's checks, the factory styles, today's table" \
         python3 -m unittest -q tests/shintech/test_styles.py
+    $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/cpat_test" tests/cpat_test.c -lm
+    run "ShinTech CHORD patterns: chords at their steps, TIE REST, notes, STYLE, tempo, hand chords, NEXT, SONG, recording, the cache, the pages, step entry, tools, undo" "$OUT/cpat_test"
+    $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/cpat_store_test" tests/cpat_store_test.c -lm
+    run "ShinTech CHORD pattern bank on flash: 64 read back after power-off, an object's others kept, power cuts, a damaged copy, quiet writes" "$OUT/cpat_store_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/speaker_test" tests/speaker_test.c -lm
     run "SPEAKER EQ: FLAT / LOWCUT / BASS+ responses, BASS+ harmonics of the bass, the sub cut, no offset after, headroom on a full-scale kick (#180)" "$OUT/speaker_test"
     run "DSP render (ANALOG preset 0)" "$OUT/hostsim" 0 0 1 "$OUT/render.wav"

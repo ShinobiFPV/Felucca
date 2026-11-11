@@ -18,6 +18,7 @@ typedef struct {
     step_t step[NTRK][NSTEP];
     int16_t timing[NTRK][4];
     uint8_t qnt[NTRK];                       /* each track's QUANTIZE (P_SQNT) as saved */
+    uint8_t cpat[NTRK];                      /* ShinTech: each track's chord pattern (P_CPAT) as saved (cpat.c cp_song) */
     motion_store_t motion;
 } chain_pattern_t;
 static chain_config_t chain_config;
@@ -40,6 +41,8 @@ static const step_t chain_silent[NSTEP] = {{{0}}};
 
 static void seq_release(track_t *t);
 static void seq_stop(void);
+static uint8_t cp_song[NTRK];                /* ShinTech: the chord pattern each track plays in the section (cpat.c), */
+static uint8_t cp_song_gen;                  /* .. counted at each section: the patterns start again from step 1 */
 static uint32_t div_samples(uint32_t div);
 static uint32_t step_samples(const track_t *t, uint32_t period, uint32_t idx);
 
@@ -113,12 +116,14 @@ static __attribute__((noinline)) void chain_apply(void)
     uint32_t i;
     const chain_row_t *r = &chain.config.row[chain.row];
     chain.clk = (uint8_t)chain_clock(r);
+    cp_song_gen++;                               /* (ShinTech: the chord patterns from their step 1, cpat.c) */
     for (i = 0; i < NTRK; i++) {
         track_t *t = &trk[i];
         uint32_t s = r->slot[i];
         chain.lane[i] = (uint8_t)(s < 4u ? s : CHAIN_SILENT);
         seq_release(t);
         motion_restore(t);
+        cp_song[i] = s < 4u ? chain.source[s].cpat[i] : 0u;   /* (ShinTech: the slot's chord pattern) */
         if (s < 4u) {
             memcpy(&t->p[P_SLEN], chain.source[s].timing[i], sizeof chain.timing[i]);
             t->p[P_SQNT] = chain.source[s].qnt[i];

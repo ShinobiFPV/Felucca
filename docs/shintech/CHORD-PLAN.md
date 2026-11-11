@@ -176,6 +176,14 @@ record means CHORD defaults, never a refused project.
 the quarter a multiple of the rate's denominator). Its state (a chord, 16 note slots) is in `.pool`, not in `track_t`.
 The four style parameters went in after the CHORD ones, before `P_E0`, and are kept in the project extension.
 
+**As built (Phase 3).** A pattern is 328 bytes (8 header, 16 x 4 hand chords as root + 24-bit interval mask, 64 x 4
+steps: chord, style, note, tempo); the plan's separate tempo table went into the steps. The bank: OBJ_CPAT0..+6 at
+0xEA000..0xF7FFF (14 sectors, as planned). Not the whole bank in RAM (21 KB of pool would leave too little for POLY6's
+chorus): a 12-pattern cache in `.pool` (`cpat_store.c`), loaded by the main loop with what may play next, written back
+only when quiet. The writes assemble an object in `proj_scratch` (main-loop work space). SONG: the section's slot
+project's own CPAT (read through its extension at `chain_prepare`), so no new per-section field was needed. Left of
+XDATA1: 0xF8000..0xFBFFF (4 sectors) for the user preset extension (POLY6) and user chord sets.
+
 **Formats (plan).** The project becomes **FUN11** ("FUNB"). Its main record keeps FUN10's layout and size (one 3,840 B
 object: there is no room to grow it), holding the parameters FUN10 has; the new CHORD and POLY6 track parameters are
 written to the project extension object instead (by id, so later additions need no layout change). FUN10 and every

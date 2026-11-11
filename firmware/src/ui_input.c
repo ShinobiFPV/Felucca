@@ -1062,6 +1062,8 @@ static void edit_param(uint32_t slot, int32_t steps)
         fop_knob(slot, steps);
         return;
     }
+    if (cpe_page(pg->graph) && cpe_knob(slot, steps))    /* ShinTech: the chord pattern pages (ui_cpat.c; CPAT below) */
+        return;
     if (pg->graph == GR_MOD && slot == 0u) {             /* MOD: KNOB 1 the slot, 2..4 its SRC DST AMT */
         mod_ui_slot = (uint8_t)clamp((int32_t)mod_ui_slot + (steps > 0 ? 1 : -1), 0, 3);
         return;
@@ -1088,6 +1090,10 @@ static void act_do(void)
         return;
     if (cur_page()->graph == GR_EVENTS) {
         ev_oct();
+        return;
+    }
+    if (cur_page()->graph == GR_CTOOLS) {                 /* ShinTech PAT TOOLS (ui_cpat.c) */
+        cpe_act(c);
         return;
     }
     if (cur_page()->graph == GR_TOOLS) {
@@ -1311,6 +1317,10 @@ static void presets_turn(int32_t s)
     }
     if (held) {                                           /* STEP with steps held: their NUDGE (1.2) */
         nudge_turn(held, s);
+        return;
+    }
+    if (cpe_page(g) && g != GR_CTOOLS && cpe_pat()) {     /* ShinTech: the chord pattern's cursor (ui_cpat.c) */
+        cpe_set(CPF_STEP, cpe_pat(), (int32_t)cpe_cur + s, 0);
         return;
     }
     if (ui.home || g == GR_BROWSE) {
@@ -1783,6 +1793,9 @@ static void ui_input(void)
         song_keys(notes);
     } else if (song.grid) {
         grid_keys(notes);
+    } else if (cpe_page(cur_page()->graph)) {           /* ShinTech: a chord pattern's step entry (ui_cpat.c) */
+        if (((song.rec >> song.sel) & 1u) && !song.playing && !chain_busy())
+            cpe_keys(notes);
     } else if (song.seq_mode && cur_page()->graph == GR_ROLL) {   /* STEP */
         if (live_rec_sel() || !((song.rec >> song.sel) & 1u))   /* armed and playing: the keys record live, not
                                                          * into the cursor step too; not armed (1.2, #133): they
@@ -1842,7 +1855,8 @@ static void ui_input(void)
         }
         if (ui.home || pg->scope == SC_STEP || pg->scope == SC_TRK || page_desc(pg, k, &hv) ||
             ((pg->graph == GR_USER || pg->graph == GR_MOD || pg->graph == GR_PATS) && k == 0u)
-            || pg->graph == GR_SONG || (pg->graph == GR_SLICES && k < 2u) || fop_page(pg->graph)) {   /* (not an empty
+            || pg->graph == GR_SONG || (pg->graph == GR_SLICES && k < 2u) || fop_page(pg->graph) ||
+            (cpe_page(pg->graph) && cpe_field(k) != CPF_NONE)) {   /* (not an empty
                                                                                                           * column) */
             ui.hot_col = (uint8_t)k;
             ui.hot_t = 40;

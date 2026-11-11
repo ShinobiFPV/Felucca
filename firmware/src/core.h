@@ -83,6 +83,7 @@ enum {                          /* per-track parameters */
                                                          * VOICING, INVERSION, RANGE, BASS. Past FUN10's parameters: a
                                                          * project keeps them in its extension (proj_ext.c, FUNB) */
     P_CSTY, P_CVAR, P_CHOLD, P_CSTRM,          /* ShinTech CHORD styles (style.c): STYLE, VARIATION, HOLD, STRUM */
+    P_CPAT,                                    /* ShinTech CHORD patterns (cpat.c): the chord pattern the track plays */
     P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7,
     P_COUNT
 };
@@ -324,11 +325,11 @@ typedef struct track {
     uint8_t lfo_wrap;            /* the LFO's phase wrapped this block: its S&H is drawn after the parts (voice.c) */
     uint32_t esync_k[3];         /* ATK's step, DEC's and REL's coefficient (Q16) this block (voice.c esync_coef) */
     uint8_t spread_on;           /* SPREAD this block (fx.c mix_part, voice.c track_render) */
-    uint8_t rsv_sz[11];          /* (sizeof(track_t) a multiple of 16: below; 1.8's AFTERTOUCH grew it by 14; ShinTech's
-                                  * CHORD parameters took 12 of the 15, its styles' 8 grew it by 16) */
+    uint8_t rsv_sz[7];           /* (sizeof(track_t) a multiple of 16: below; 1.8's AFTERTOUCH grew it by 14; ShinTech's
+                                  * CHORD parameters took 12 of the 15, its styles' 8 grew it by 16, its pattern 4 (with its pad)) */
 #else
-    uint8_t rsv_sz[8];           /* (sizeof(track_t) a multiple of 16: below; 1.8's AFTERTOUCH took 2 of it; ShinTech's
-                                  * CHORD parameters 12 more: 16 again; its styles' 8 of them) */
+    uint8_t rsv_sz[4];           /* (sizeof(track_t) a multiple of 16: below; 1.8's AFTERTOUCH took 2 of it; ShinTech's
+                                  * CHORD parameters 12 more: 16 again; its styles' 8 of them, its pattern 4 (with its pad)) */
 #endif
     int16_t armp, aholdp;        /* P_AMODE / P_AHOLD as last seen by the ISR */
     /* engine switch (voice.c engine_block): the old engine's voices fade out, then it switches */

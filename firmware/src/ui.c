@@ -433,8 +433,8 @@ static int page_visible(uint32_t i)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
     if (PAGES[i].id[0] == P_FTYPE)                    /* FILTER (1.5, #104): ANALOG's */
         return ENGINES[TSEL->eng_req % NENGINES] == &ENG_ANALOG;
-    if (PAGES[i].id[0] == P_CSET || PAGES[i].id[0] == P_CVOIC || PAGES[i].id[0] == P_CSTY)   /* ShinTech CHORD SET,
-                                                                                * VOICING, STYLE: CHRD SET's */
+    if (PAGES[i].id[0] == P_CSET || PAGES[i].id[0] == P_CVOIC || PAGES[i].id[0] == P_CSTY ||   /* ShinTech: CHORD */
+        (PAGES[i].graph >= GR_CPAT && PAGES[i].graph <= GR_CTOOLS))   /* SET, VOICING, STYLE, the patterns: CHRD SET's */
         return TSEL->p[P_CHRD] == CHRD_SET;
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)
         return TSEL->eng_req % NENGINES == ENGI_FM6;
@@ -868,7 +868,7 @@ static int seq_is_empty(const track_t *t)
  * takes the copy too (UNDO_MOT: SAVE held puts the track's motion back, the sound and the steps stay; motion_undo_take).
  * A sound load keeps the track's motion on the parameters every engine has (load_end, motion.c motion_sound_loaded);
  * a pattern load drops it all (the steps it was on are gone) */
-enum { UNDO_SOUND = 1, UNDO_PAT = 2, UNDO_MOT = 4 };
+enum { UNDO_SOUND = 1, UNDO_PAT = 2, UNDO_MOT = 4, UNDO_CPAT = 8 };   /* UNDO_CPAT: ShinTech, a chord pattern (ui_cpat.c) */
 static struct {
     uint8_t trk;                 /* track + 1, 0 = nothing to undo */
     uint8_t keep;                /* the track is as the last load left it (undo.after): a next load keeps the copy */
@@ -884,6 +884,8 @@ static struct {
     uint32_t from_h;             /* pat_from_h[], pat_from[] of the copy (the header's slot letter) */
     uint8_t from;
     uint32_t t_ms;               /* time of the last load (the editor's SETs after it belong to it) */
+    uint8_t cp_id;               /* UNDO_CPAT: the chord pattern (1..64) and its copy (ShinTech, ui_cpat.c) */
+    cpat_t cpat;
 } undo __attribute__((section(".pool")));   /* (main loop only: off the audio code's .bss) */
 static uint8_t undo_depth;       /* loads nest (an engine jump loads its first preset): the outer one counts;
                                   * felucca_init / project_load raise it to take no copy at all */
@@ -1144,6 +1146,15 @@ static void undo_swap(void)
         }
     }
     fm1_irq_on();
+    if (undo.what & UNDO_CPAT) {                  /* ShinTech: the chord pattern as it was (the cache's copy) */
+        cpat_t *p = cp_edit(undo.cp_id), x;
+        if (p) {
+            x = *p;
+            *p = undo.cpat;
+            undo.cpat = x;
+            cp_dirty(undo.cp_id);
+        }
+    }
     if (undo.what & UNDO_SOUND) {                 /* FM6: the track's patch as it was (edited, a project's, a
                                                    * converted DIGITAL sound), not a factory one */
         uint32_t tr = trk_index(t);
@@ -1160,7 +1171,7 @@ static void undo_swap(void)
         sync_reload = 1;
     b[1] = (char)('1' + trk_index(t));             /* (1.8: and what came back) */
     str_cpy(b + 3, undo.what & UNDO_SOUND ? (undo.what & UNDO_PAT ? "SOUND+STEPS" : "SOUND") :
-            undo.what & UNDO_PAT ? "STEPS" : "AUTO", sizeof b - 3u);
+            undo.what & UNDO_PAT ? "STEPS" : undo.what & UNDO_CPAT ? "PATTERN" : "AUTO", sizeof b - 3u);
     ui_say("UNDO/REDO ", b);
     ui.force = 1;
 }
@@ -1277,7 +1288,7 @@ static int param_kept(uint32_t i)
 {
     return i == P_LEVEL || i == P_PAN || i == P_MUTE || (i >= P_AMODE && i <= P_SGATE) ||
            (i >= P_SLCR && i <= P_SLDEPTH) || i == P_CHRD || i == P_VOIC || i == P_SQNT ||
-           (i >= P_CSET && i <= P_CSTRM);   /* (ShinTech CHORD: the chord setup stays with the track, as the chord keys) */
+           (i >= P_CSET && i <= P_CPAT);   /* (ShinTech CHORD: the chord setup stays with the track, as the chord keys) */
 }
 
 /* a retired preset kept as an alias, so stored preset numbers stay valid: SAMPLE 1, once TRANH, is PIANO
@@ -1767,6 +1778,8 @@ static void track_select(uint32_t i)
 
 #include "ui_slice.c"                             /* EDIT > SLICES: SLICE's slices by hand (an action page too) */
 #include "ui_events.c"                            /* SEQ > AUTOMATION: locks, events, CHANCE, RATCH as a list (an action page) */
+static int cpe_act_ready(uint32_t c);              /* ShinTech PAT TOOLS, an action page (ui_cpat.c: ui_graph.c) */
+static const char *cpe_act_name(uint32_t c);
 #include "midi_learn.c"                           /* MIDI LEARN (1.5): GLO + D4, a knob, a CC */
 
 /* ---------------------------------------------------- action pages --- */
@@ -1782,6 +1795,7 @@ static uint32_t act_cols(void)                   /* the columns that are actions
     if (ui.home)
         return 0;
     if (pg->graph == GR_EVENTS) return 16u;     /* AUTOMATION: no knob is an action; OCT+ by the row (ev_oct) */
+    if (pg->graph == GR_CTOOLS) return 14u;     /* ShinTech PAT TOOLS: COPY PASTE CLEAR (ui_cpat.c) */
     if (pg->graph == GR_TOOLS) return 15u;
     if (pg->graph == GR_SONG)
         return 1u;                               /* PLAY / STOP (also the PLAY button) */
@@ -1813,6 +1827,7 @@ static const char *act_name(uint32_t c)          /* column c's action (the foote
     static const char *const UP_GO[3] = {"LOAD", "ERASE", "SAVE"};
     uint32_t id = cur_page()->id[c & 3u];
     if (cur_page()->graph == GR_EVENTS) return ev_act_name();
+    if (cur_page()->graph == GR_CTOOLS) return cpe_act_name(c & 3u);
     if (cur_page()->graph == GR_TOOLS) {
         static const char *const actions[] = {"CLEAR", "INIT", "DELETE", "CLEAR"};
         return (c & 3u) == 1u && ui.tl_clean ? "CLEAN" : actions[c & 3u];   /* (1.5.5: KNOB 2 on: CLEAN INIT) */
@@ -1838,6 +1853,7 @@ static int act_ready(void)
     if (!c--)
         return 0;
     if (cur_page()->graph == GR_EVENTS) return ev_act_ready();
+    if (cur_page()->graph == GR_CTOOLS) return cpe_act_ready(c);
     if (cur_page()->graph == GR_TOOLS)                  /* one case per column: CLEAR PAT, INIT, DELETE ROW, CLEAR SONG */
         return !chain_busy() && (c == 0u ? !seq_is_empty(TSEL) || motion_count(TSEL) : c == 1u ? 1 :
                                  c == 2u ? ui.song_row < chain_config.count : chain_config.count != 0u);

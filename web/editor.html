@@ -1814,8 +1814,9 @@ function makeMockDevice(opt = {}) {
     /* .. its styles (112..115): STYLE, VARIATION (1..12), HOLD, STRUM (ms, 0 AUTO; firmware style.c) */
     TP.push(E("STYLE", ["OFF", "ARP1", "ARP2", "BEAT1", "BEAT2", "BEAT3", "STRM1", "STRM2", "STRM3", "STRM4"], 0),
       D("VAR", F.INT, 0, 11, 0), E("CHOLD", ["OFF", "ON"], 0), D("STRUM", F.INT, 0, 60, 0));
+    TP.push(D("CPAT", F.INT, 0, 64, 0));   /* .. its chord pattern (116: OFF, 1..64; firmware cpat.c) */
   }
-  const P_COUNT = 124, G_COUNT = 27, NSTEP = 64, P_E0 = 116, G_ENGSEL = 20, P_SLCR = 45;
+  const P_COUNT = 125, G_COUNT = 27, NSTEP = 64, P_E0 = 117, G_ENGSEL = 20, P_SLCR = 45;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const enumOrig = (d, v) => d.fmt === F.ENUM && d.names ? aliasOf(d.names, v - d.min) + d.min : v;   /* params.c enum_orig */
   /* four tracks (firmware v3), four synth parts (1.0); engine / preset / p / step below are the selected track's */
