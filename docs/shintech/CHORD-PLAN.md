@@ -70,6 +70,14 @@ core (MENU > SYSTEM > 2ND CORE, beta) can render some parts.
 
 **Headroom (stock).** Code 63,960 B free of the 581,564 B app slot. RAM 7,308 B usable, pool 34,212 B usable.
 
+## Decisions (2026-11-11)
+
+- **Key layout in CHORD mode** (27 keys, F3..G5): C4..B4 the 12 chords of the set; F3..B3 the shortcuts: white keys
+  F G A B = SET -, SET +, VARIATION -, VARIATION +; black keys F# G# A# = HOLD, VOICING (cycles), BASS (on / off);
+  C5..G5 single notes over the chord (white keys), black keys C#5 D#5 = TRANSPOSE - / +, F#5 = (spare).
+- **Hand-played chords:** at most 16 distinct ones per pattern.
+- **Chord pattern bank:** one global bank of 64, shared by every project (as user presets are).
+
 ## 2. Gap analysis
 
 R = reuse, E = extend existing code, N = new.
