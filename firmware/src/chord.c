@@ -13,27 +13,73 @@
  * engine that maps the keys itself) ignores CHRD. Every source keeps the notes it started (kb_chord for a
  * key, mchord for a MIDI note) and its release ends exactly those, so CHRD / VOIC changed while it is held
  * leave nothing hanging. A note several sources hold sounds once and ends with the last of them. */
-enum { CH_OFF, CH_DIA3, CH_DIA7, CH_MAJ, CH_MIN, CH_DOM7, CH_MAJ7, CH_MIN7, CH_SUS4, CH_POW };
+#include "chordset.c"                    /* ShinTech CHORD: the chord sets (CHRD SET) */
+enum { CH_OFF, CH_DIA3, CH_DIA7, CH_MAJ, CH_MIN, CH_DOM7, CH_MAJ7, CH_MIN7, CH_SUS4, CH_POW, CH_SET };
+_Static_assert(CH_SET == CHRD_SET, "chord.c: CH_SET is params.c's SET");
 enum { VC_CLOSE, VC_OPEN, VC_INV1, VC_INV2, VC_BASS };
-#define CHORD_MAX 4u
+#define CHORD_MAX 4u                     /* notes of a fixed shape or a diatonic chord */
+#define CHORD_NOTES CS_VMAX              /* notes a source may start: a SET chord, its bass too (chordset.c) */
 #define MCHORD_N 24u                     /* MIDI notes held as chords at once (more: their root alone) */
 
 static const int8_t CHORD_SHAPE[CH_POW - CH_MAJ + 1][CHORD_MAX] = {
     {0, 4, 7, -1}, {0, 3, 7, -1}, {0, 4, 7, 10}, {0, 4, 7, 11}, {0, 3, 7, 10}, {0, 5, 7, -1}, {0, 7, 12, -1},
 };
 
-static uint8_t kb_chord[27][CHORD_MAX], kb_chn[27];   /* the notes key k started (kb_chn 0: none) */
-typedef struct { uint8_t id, ch, src, n, note[CHORD_MAX]; } mchord_t;   /* id: track + 1, 0 = free */
+static uint8_t kb_chord[27][CHORD_NOTES], kb_chn[27];   /* the notes key k started (kb_chn 0: none) */
+typedef struct { uint8_t id, ch, src, n, note[CHORD_NOTES]; } mchord_t;   /* id: track + 1, 0 = free */
 static mchord_t mchord[MCHORD_N];
 /* the last chord played per track (the CHORD page shows it): its root, notes, and the shape's tones above the
- * root (bit i = i semitones, 0..11) */
-static struct { uint8_t root, n, note[CHORD_MAX]; uint16_t mask; uint8_t gen; } chord_last[NTRK];
+ * root (bit i = i semitones, 0..11); ShinTech: set 1 for a SET chord (named by cs_name), with its slash bass (-1 none) */
+static struct { uint8_t root, n, note[CHORD_NOTES]; uint16_t mask; uint8_t gen, set; int8_t bass; } chord_last[NTRK];
+/* CHRD SET: each track's last voicing (its notes above the bass, ascending), the chord the next one leads from */
+static struct { uint8_t n, note[CS_MAXN]; } chord_vl[NTRK];
 
 /* 1 = the track's keys are a kit: no chords */
 static int chord_kit(const track_t *t)
 {
     const engine_t *e = ENGINES[eng_idx(t->eng_req)];
     return e->oneshot || (e->keys && e->keys(t, 0) >= 0);
+}
+
+/* ShinTech CHORD: CHRD SET on a track that plays chords. A note n plays chord n % 12 of the track's set (the keys
+ * C4..B4: seq.c cset_key gives them 60..71; MIDI IN any octave), in its KEY, voiced (chordset.c cs_voice: VOICING,
+ * INVERSION or the voice leading from chord_vl, the RANGE window, BASS) */
+static int chord_set_on(const track_t *t) { return t->p[P_CHRD] == CH_SET && !chord_kit(t); }
+static uint32_t chord_set_make(const track_t *t, uint32_t note, uint8_t *out, int32_t *rp, uint16_t *maskp,
+                               int8_t *bp)
+{
+    cs_chord_t c;
+    const uint8_t *pv = chord_vl[trk_index(t)].note;
+    uint32_t n, i, key = (uint32_t)clamp(t->p[P_CKEY], 0, 11), pc;
+    int32_t lo = CRNG_LO + clamp(t->p[P_CRNG], 0, 48), inv = t->p[P_CINV] > 0 ? t->p[P_CINV] - 1 : CS_INV_AUTO;
+    *bp = -1;
+    if (!cs_get((uint32_t)clamp(t->p[P_CSET], 0, CS_NSETS - 1), note % 12u, &c)) {
+        out[0] = (uint8_t)note;
+        *rp = (int32_t)note;
+        *maskp = 0;
+        return 1;
+    }
+    n = cs_voice(&c, key, (uint32_t)clamp(t->p[P_CVOIC], 0, CSV_AUTO), inv, lo, t->p[P_CBASS] != 0, pv,
+                 chord_vl[trk_index(t)].n, out);
+    pc = (c.root + key) % 12u;
+    *rp = n ? out[0] : lo;
+    for (i = 0; i < n; i++)                             /* its root: the lowest note of the root's pitch class */
+        if (out[i] % 12u == pc) {
+            *rp = out[i];
+            break;
+        }
+    *maskp = (uint16_t)cs_mask(&c);
+    if (c.bass >= 0)
+        *bp = (int8_t)(((uint32_t)c.bass + key) % 12u);
+    if (!n) {
+        out[0] = (uint8_t)clamp(*rp, 0, 127);
+        return 1;
+    }
+    if (trk_vmode(t) != V_POLY) {                       /* one voice: the root */
+        out[0] = (uint8_t)clamp(*rp, 0, 127);
+        return 1;
+    }
+    return n;
 }
 
 /* the tones of the chord (semitones above *root, ascending, iv[0] = 0) -> their number; DIA may move *root
@@ -77,6 +123,10 @@ static uint32_t chord_make(const track_t *t, uint32_t root, uint8_t *out, int32_
     uint16_t mask = 0;
     *rp = r;
     *maskp = 0;
+    if (mode == CH_SET && !chord_kit(t)) {              /* ShinTech: the chord set */
+        int8_t b;
+        return chord_set_make(t, root, out, rp, maskp, &b);
+    }
     if (!mode || mode > CH_POW || chord_kit(t)) {
         out[0] = (uint8_t)root;
         return 1;
@@ -136,17 +186,31 @@ static uint32_t chord_make(const track_t *t, uint32_t root, uint8_t *out, int32_
     return m;
 }
 
-/* chord_make for a note played now: a chord is kept in chord_last (the CHORD page shows it) */
+/* chord_make for a note played now: a chord is kept in chord_last (the CHORD page shows it); CHRD SET: its voicing
+ * is the one the next chord leads from (chord_vl: the notes above the bass) */
 static uint32_t chord_build(track_t *t, uint32_t root, uint8_t *out)
 {
     int32_t r;
     uint16_t mask;
-    uint32_t m = chord_make(t, root, out, &r, &mask), i, k = trk_index(t);
-    if (m > 1u) {
+    int8_t bass = -1;
+    uint32_t m, i, k = trk_index(t), set = chord_set_on(t);
+    m = set ? chord_set_make(t, root, out, &r, &mask, &bass) : chord_make(t, root, out, &r, &mask);
+    if (set && mask) {
+        int32_t lo = CRNG_LO + clamp(t->p[P_CRNG], 0, 48);
+        uint32_t v = 0;
+        for (i = 0; i < m && v < CS_MAXN; i++)
+            if (out[i] >= lo)
+                chord_vl[k].note[v++] = out[i];
+        if (v)
+            chord_vl[k].n = (uint8_t)v;
+    }
+    if (m > 1u || (set && mask)) {
         chord_last[k].root = (uint8_t)clamp(r, 0, 127);
         chord_last[k].mask = mask;
         chord_last[k].n = (uint8_t)m;
-        for (i = 0; i < CHORD_MAX; i++)
+        chord_last[k].set = (uint8_t)set;
+        chord_last[k].bass = bass;
+        for (i = 0; i < CHORD_NOTES; i++)
             chord_last[k].note[i] = i < m ? out[i] : 0u;
         chord_last[k].gen++;
     }

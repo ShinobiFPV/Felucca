@@ -35,6 +35,7 @@ CS_MAXN = 6                                    # notes above the bass (CHORD_SET
 NAME_LEN = 12                                  # a set's name: upper-case ASCII, at most 12 (the screen's width)
 GENRES = ["POP", "SYNTHWAVE", "HOUSE", "TECHNO", "R&B", "NEO SOUL", "JAZZ", "LO-FI", "CINEMATIC", "FUNK", "GOSPEL",
           "MINIMAL"]
+GENRE_CODES = ["POP", "SYN", "HSE", "TEC", "RNB", "NEO", "JAZ", "LOF", "CIN", "FNK", "GOS", "MIN"]   # the SET knob: "HSE2"
 VOICINGS = {"close": 0, "open": 1, "spread": 2}
 NOTE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 
@@ -249,6 +250,7 @@ def write_header(out, sets, shapes, rows):
          f"#define CS_NGENRES {len(GENRES)}u",
          f"#define CS_NAME_LEN {NAME_LEN}u",
          "static const char *const CS_GENRE[CS_NGENRES] = {" + ", ".join(c_str(g) for g in GENRES) + "};",
+         "static const char *const CS_GENRE_CODE[CS_NGENRES] = {" + ", ".join(c_str(g) for g in GENRE_CODES) + "};",
          "static const int8_t CS_SHAPE[CS_NSHAPES][CS_MAXN] = {"]
     for sh in shapes:
         L.append("    {" + ", ".join(str(x) for x in list(sh) + [-1] * (CS_MAXN - len(sh))) + "},")

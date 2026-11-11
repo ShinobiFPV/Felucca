@@ -356,6 +356,13 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
 {
     *unit = "";
     fmt_named = d->fmt == F_ENUM;
+    if (d == &TP[P_CSET]) {                         /* ShinTech CHORD: the set as its genre and its number there, "HSE2" */
+        uint32_t s = (uint32_t)clamp(v, 0, CS_NSETS - 1), g = CS_SET[s].genre;
+        str_cpy(val, CS_GENRE_CODE[g], 4);
+        fmt_int(val + str_len(val), (int32_t)(s - CS_GENRE_FIRST[g] + 1u));
+        fmt_named = 1;
+        return;
+    }
     switch (d->fmt) {
     case F_PCT:                                     /* a 0..100 range (SWG) is its value, others a share of 127 */
         fmt_int(val, d->max == 100 ? v : (v * 100 + 63) / 127);
@@ -491,6 +498,8 @@ static const page_t PAGES[] = {
     {"CHORUS", FAM_FX, SC_GLOBAL, GR_NONE, {G_CRATE, G_CDEPTH, 0xFF, 0xFF}},
     {"SCL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_TRANS}},
     {"CHORD", FAM_SCL, SC_TRACK, GR_CHORD, {P_CHRD, P_VOIC, 0xFF, 0xFF}},   /* SCL again: the chord keys (chord.c) */
+    {"CHORD SET", FAM_SCL, SC_TRACK, GR_CHORD, {P_CSET, P_CKEY, P_CBASS, 0xFF}},   /* ShinTech CHORD: CHRD SET only */
+    {"VOICING", FAM_SCL, SC_TRACK, GR_CHORD, {P_CVOIC, P_CINV, P_CRNG, 0xFF}},    /* (ui.c page_visible) */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E7}},   /* ANALOG only (1.5, #104): TYPE CUT RES KTR */

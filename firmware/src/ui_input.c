@@ -1246,7 +1246,7 @@ static void seq_entry(uint32_t pressed)
     step_t *st = &t->step[ui.cursor];
     uint32_t k, add = (ui_prefs2 & (PREF_CHORD_ADD >> 16)) != 0u;
     for (k = 0; k < 27u; k++) {
-        uint8_t ch[CHORD_MAX];
+        uint8_t ch[CHORD_NOTES];
         int32_t r;
         uint16_t mask;
         uint32_t note, n, i, j;

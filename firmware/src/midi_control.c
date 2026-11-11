@@ -84,7 +84,7 @@ static void midi_release(uint32_t ch, uint32_t note)
     }
     if (id) {
         mchord_t *m = mchord_of(ch, note, id);
-        uint8_t nn[CHORD_MAX];
+        uint8_t nn[CHORD_NOTES];
         uint32_t n = 1, i;
         nn[0] = (uint8_t)note;
         if (m) {                                  /* a chord: exactly the notes it started */
@@ -103,7 +103,7 @@ static void midi_release(uint32_t ch, uint32_t note)
  * note holds already sounds: not started again */
 static void midi_play(track_t *t, uint32_t ch, uint32_t note, uint32_t vel)
 {
-    uint8_t nn[CHORD_MAX];
+    uint8_t nn[CHORD_NOTES];
     uint32_t n = chord_build(t, note, nn), i, f = 0;
     if (n > 1u || nn[0] != note)
         for (f = 0; f < MCHORD_N && mchord[f].id; f++)

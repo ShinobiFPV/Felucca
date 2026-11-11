@@ -1667,8 +1667,9 @@ static void ui_draw_page(uint32_t counting)
         return;
     }
     if (!ui.home && !page_visible(ui.page)) {          /* an OP page of a track that is not DIGITAL (without
-                                                         * FELUCCA_FM4: any track): EDIT 1 */
-        ui.page = (uint8_t)page_first(FAM_EDIT);
+                                                         * FELUCCA_FM4: any track): EDIT 1; ShinTech: CHORD SET /
+                                                         * VOICING with CHRD no longer SET: SCL. Its family's first */
+        ui.page = (uint8_t)page_first(PAGES[ui.page].fam);
         page_entered();
     }
     cursor_fix();

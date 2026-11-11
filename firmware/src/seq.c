@@ -187,7 +187,7 @@ static void arp_add(track_t *t, uint32_t note)
          * key, so TRN, ROOT, SCALE and QNT reach the notes the arp holds (arp_list); the octave stays the one it was
          * pressed in. Anything else (MIDI IN) plays as it came, as before */
         uint8_t *hk = held_key[trk_index(t)];
-        hk[t->nheld] = in_key && song.grid != 1u && kb_engine(t, k) < 0
+        hk[t->nheld] = in_key && song.grid != 1u && kb_engine(t, k) < 0 && !chord_set_on(t)   /* (a SET chord: as it is) */
                            ? (uint8_t)(in_key | (uint32_t)(song.octave + 3) << 5) : 0u;
         held_dt[trk_index(t)][t->nheld] = (int8_t)(hk[t->nheld] ? (int32_t)note - kb_note[k] : 0);
         t->held[t->nheld++] = (uint8_t)note;
@@ -755,11 +755,61 @@ static __attribute__((noinline)) void perf_key_remap(void)
     }
 }
 
+/* ShinTech CHORD, CHRD SET (chord.c chord_set_on): the keys of the selected track (docs/shintech/CHORD-PLAN.md):
+ *   C4 .. B4 (keys 7..18)   chord 1..12 of the set: kb_note 60..71, which chord.c reads as the chord's number
+ *   F3 .. B3 (keys 0..6)    on a press, silent: F SET -, G SET +, A VARIATION -, B VARIATION + (styles: none yet),
+ *                           F# HOLD (styles: none yet), G# VOICING (CLOSE OPEN SPRD AUTO, round), A# BASS on / off
+ *   C5 .. G5 (keys 19..26)  the white keys a single note (the key's own, as without CHORD: kb_map); black C# KEY -,
+ *                           D# KEY + (round the twelve), F# none
+ * A shortcut sets the parameter as a knob or a CC does (midi_control.c midi_cc_set: recorded as automation while
+ * that records). -> key k's note, KB_SILENT for a shortcut; kb_single bit k: a single note (key_on: no chord) */
+static uint32_t kb_single;
+static void cset_param(track_t *t, uint32_t id, int32_t v)
+{
+    t->p[id] = (int16_t)v;
+    (void)motion_capture(t, id, (int16_t)v);
+}
+static __attribute__((noinline)) uint32_t cset_key(track_t *t, uint32_t k)
+{
+    kb_single &= ~(1u << k);
+    if (k >= 7u && k <= 18u)
+        return 60u + (k - 7u);
+    if (k >= 19u) {
+        if (!key_black(k)) {
+            kb_single |= 1u << k;
+            return kb_map(t, k);
+        }
+        if (k == 20u || k == 22u)                       /* C#5 KEY -, D#5 KEY + */
+            cset_param(t, P_CKEY, (t->p[P_CKEY] + (k == 20u ? 11 : 1)) % 12);
+        return KB_SILENT;
+    }
+    switch (k) {
+    case 0:                                             /* F3 SET -, G3 SET + (round) */
+    case 2:
+        cset_param(t, P_CSET, (t->p[P_CSET] + (k ? 1 : (int32_t)CS_NSETS - 1)) % (int32_t)CS_NSETS);
+        break;
+    case 3:                                             /* G#3 VOICING */
+        cset_param(t, P_CVOIC, (t->p[P_CVOIC] + 1) % (CSV_AUTO + 1));
+        break;
+    case 5:                                             /* A#3 BASS */
+        cset_param(t, P_CBASS, !t->p[P_CBASS]);
+        break;
+    default:                                            /* F#3 HOLD, A3 / B3 VARIATION: the styles (Phase 2) */
+        break;
+    }
+    return KB_SILENT;
+}
+
 /* key k plays kb_note[k] on track t: its chord (chord.c; the note alone with CHRD OFF). A note another key
  * holds already sounds: it is not started again (nor sent to MIDI OUT); the key keeps its notes */
 static void key_on(uint32_t k, track_t *t)
 {
-    uint32_t n = chord_build(t, kb_note[k], kb_chord[k]), i, mc = trk_midi_ch(trk_index(t)), vel = kb_vel;
+    uint32_t n, i, mc = trk_midi_ch(trk_index(t)), vel = kb_vel;
+    if (((kb_single >> k) & 1u) && chord_set_on(t)) {   /* (ShinTech CHORD: C5 .. G5's single notes) */
+        kb_chord[k][0] = kb_note[k];
+        n = 1;
+    } else
+        n = chord_build(t, kb_note[k], kb_chord[k]);
     kb_chn[k] = 0;
     in_key = (uint8_t)(k + 1u);                     /* (the arp keeps the key: arp_add) */
     for (i = 0; i < n; i++) {
@@ -845,6 +895,8 @@ static void keyboard_block(void)
                 kb_note[k] = KB_SILENT;
             else if (song.grid == 1u)             /* the DRUM grid: a lane key plays its lane, the rest are the UI's */
                 kb_note[k] = grid_key_note(k);
+            else if (chord_set_on(&trk[kb_trk[k]]))   /* ShinTech CHORD: chords, shortcuts, single notes */
+                kb_note[k] = (uint8_t)cset_key(&trk[kb_trk[k]], k);
             else
                 kb_note[k] = (uint8_t)kb_map(&trk[kb_trk[k]], k);
             if (kb_note[k] == KB_SILENT)

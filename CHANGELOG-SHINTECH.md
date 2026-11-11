@@ -9,6 +9,24 @@ release notes are in its wiki. Projects that use the new features will not open 
 
 ### Phase 1: CHORD mode and chord sets
 
+- **CHORD mode on the keys.** SCL > CHORD, KNOB 1 to **SET** (after POW) on any engine but a kit. Then:
+  - **C4..B4** play the twelve chords of the set, voiced as CHORD SET / VOICING say, each led from the chord before
+    (chordset.c cs_voice). A release ends exactly the notes its key started.
+  - **F3..B3** are shortcuts, silent: F SET -, G SET + (round the 100), G# VOICING (CLOSE OPEN SPRD AUTO), A# BASS
+    on / off; F# HOLD and A / B VARIATION - / + are kept for the styles (Phase 2) and do nothing yet.
+  - **C5..G5**: the white keys play their own note over the chord; C#5 / D#5 KEY - / + (round the twelve).
+  - **MIDI IN** plays chord n % 12 of the set for note n (C of any octave: chord 1). MONO / LEGATO / UNISON play the
+    chord's root. MIDI OUT sends every note on the track's channel, as the chord keys always did. The arp takes a SET
+    chord as the notes it played.
+- **Pages.** SCL now goes SCL > CHORD > **CHORD SET** (SET, KEY, BASS) > **VOICING** (VOICING, INVERSION, RANGE), the
+  last two only while CHRD is SET (they leave for SCL when it no longer is). The SET knob names the set by its genre
+  and number ("HSE2"); the page shows the chord's name ("Dm9", "G/B": chordset.c cs_name) and the set's name over the
+  keys it sounds (up to four octaves for a wide voicing), and before any chord the set's first. HELP has a hint for
+  both.
+- Tests: `tests/chordmode_test.c` (exact voicings and voice leading on the real keys, BASS, every shortcut, single
+  notes, MIDI IN / OUT, MONO, kits, the pages and their order); the UI renders sweep both pages' values and draw two
+  new screens (`chord_set`, `chord_voicing`). Cost: 9.3 KB of code (5 KB the chord sets), 224 B of RAM.
+
 - **Project format FUNB and the project extension.** Six new track parameters for CHORD mode, before the engine
   values as upstream adds them: SET, KEY, CVOIC (the voicing: CLOSE OPEN SPRD AUTO; not VOIC, the chord keys' label),
   INV (AUTO ROOT 1ST 2ND 3RD), RNG (C2..C6, default G3) and BASS, ids 106..111, plus P_CHRD's new value SET (P_COUNT

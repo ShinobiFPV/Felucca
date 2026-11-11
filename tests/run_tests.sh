@@ -287,6 +287,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "scales: white-key mapping and note lifecycle" "$OUT/scale_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/chord_test" tests/chord_test.c -lm
     run "chord keys: diatonic and fixed chords, voicings, MONO root, releases, recording, ARP, MIDI IN, kits" "$OUT/chord_test"
+    $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/chordmode_test" tests/chordmode_test.c -lm
+    run "ShinTech CHORD mode: the set on C4..B4, voice leading, BASS, the shortcut keys, single notes, MIDI IN / OUT, MONO, kits, pages" "$OUT/chordmode_test"
     $CC -Ibuild/gen -Ifirmware/src -o "$OUT/chordset_test" tests/chordset_test.c
     run "ShinTech CHORD sets: every factory chord read back, the names, genres" "$OUT/chordset_test" "$OUT/chordset_names.txt"
     run "ShinTech CHORD sets: the symbols, the generator's checks, today's table, each firmware name read back" \

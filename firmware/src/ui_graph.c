@@ -391,11 +391,12 @@ static void panel_alert(uint32_t id, const char *a);
 static void graph_chord(const track_t *t, uint16_t c)
 {
     static const uint8_t BLACK[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
-    uint8_t nn[CHORD_MAX];
-    uint32_t n, i, j, k = trk_index(t), lo, cnt, w;
+    uint8_t nn[CHORD_NOTES];
+    uint32_t n, i, j, k = trk_index(t), lo, cnt, w, set = chord_set_on(t);
     int32_t r;
     uint16_t mask;
-    char b[12];
+    int8_t bass = -1;
+    char b[CS_NAME_MAX], sn[CS_NAME_LEN + 1u];
     const char *cap = "LAST";
     if (!t->p[P_CHRD]) {
         panel_note("CHORD KEYS OFF", "[K1] DIA3: IN-KEY CHORDS", 0);   /* (the title says what they are) */
@@ -405,29 +406,42 @@ static void graph_chord(const track_t *t, uint16_t c)
         panel_note("NO CHORDS ON KITS", 0, 0);
         return;
     }
-    if (chord_last[k].n) {
+    if (chord_last[k].n && chord_last[k].set == set) {
         r = chord_last[k].root;
         mask = chord_last[k].mask;
         n = chord_last[k].n;
+        bass = chord_last[k].bass;
         for (i = 0; i < n; i++)
             nn[i] = chord_last[k].note[i];
+    } else if (set) {                                   /* ShinTech: before any, the set's first chord */
+        n = chord_set_make(t, 60u, nn, &r, &mask, &bass);
+        cap = "CHORD 1";
     } else {
         n = chord_make(t, (uint32_t)(60 + t->p[P_ROOT]), nn, &r, &mask);
         cap = "ON ROOT";
     }
+    if (set) {                                          /* ShinTech: the set's name (12 characters: no 0 then) */
+        memcpy(sn, CS_SET[clamp(t->p[P_CSET], 0, CS_NSETS - 1)].name, CS_NAME_LEN);
+        sn[CS_NAME_LEN] = 0;
+        cap = sn;
+    }
     if (trk_vmode(t) != V_POLY)
-        cap = "ROOT ONLY";                              /* MONO / LEGATO / UNISON */
-    chord_name(b, (uint32_t)r, mask);
+        cap = set ? "MONO: ROOT" : "ROOT ONLY";         /* MONO / LEGATO / UNISON */
+    if (set)
+        cs_name(b, (uint32_t)r % 12u, mask, bass);
+    else
+        chord_name(b, (uint32_t)r, mask);
     cv_text_on(14, 8, &AF_M, b, T_TEXT, T_SURF);
     GFX_HOOK_ALIGN(0, 0, 0, 8 + AF_M.asc, AL_B, "chord caption on the name's baseline");
     cv_text_r(226, 8 + AF_M.asc - AF_S.asc, &AF_S, cap, T_MID, T_SURF);   /* on the name's baseline */
     lo = nn[0] - nn[0] % 12u;
-    cnt = nn[n - 1u] - lo < 24u ? 24u : 36u;
+    cnt = nn[n - 1u] - lo < 24u ? 24u : nn[n - 1u] - lo < 36u ? 36u : 48u;   /* (a spread SET chord with its bass: four) */
     w = 216u / cnt;
     GFX_HOOK_ALIGN(0, 0, 240, 0, AL_H | AL_CELLS | AL_N(cnt), "chord keys centred");
     for (i = 0; i < cnt; i++) {
         uint32_t note = lo + i, on = 0;
-        int32_t x = 13 + (int32_t)(i * w);              /* (216 px of keys and their gaps: x 13 .. 227) */
+        int32_t x = 13 + (int32_t)(216u - cnt * w) / 2 + (int32_t)(i * w);   /* (216 px of keys and their gaps: x 13 ..
+                                                                               * 227; four octaves 192, centred) */
         for (j = 0; j < n; j++)
             on |= nn[j] == note;
         cv_rrect(x, BLACK[note % 12u] ? 36 : 62, (int32_t)w - 2, 48, w > 6u ? 3 : 2,
@@ -1199,9 +1213,10 @@ static uint32_t graph_signature(void)
          ui.ppick * 1299709u;
     if (pg->graph == GR_CHORD) {                     /* the last chord played */
         h = (h ^ (chord_last[song.sel].root + 131u * chord_last[song.sel].mask)) * 16777619u;
-        for (i = 0; i < CHORD_MAX; i++)
+        for (i = 0; i < CHORD_NOTES; i++)
             h = (h ^ chord_last[song.sel].note[i]) * 16777619u;
         h ^= (uint32_t)t->engine * 389u;             /* (MONO and kits follow the sounding engine) */
+        h ^= (uint32_t)(chord_last[song.sel].bass + 1) * 977u;   /* (ShinTech: a SET chord's slash bass) */
     }
     if (pg->graph == GR_SONG) {
         h ^= ui.song_row * 40503u + chain_config.count * 7919u + ui.song_trk * 3571u;
