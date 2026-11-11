@@ -112,6 +112,8 @@ static void track_lfo_tick(track_t *t)                  /* (one core: the whole 
 static uint32_t trk_nvoice(const track_t *t)
 {
     uint32_t c = ENGINES[t->engine]->poly;
+    if (t->engine == ENGI_POLY6)                      /* (ShinTech POLY6: VOICES 4 or 8) */
+        c = t->p[P_P6MODE] == P6M_8ENV || t->p[P_P6MODE] == P6M_8GATE ? NVOICE : 4u;
     return c && c < NVOICE ? c : NVOICE;
 }
 
@@ -655,6 +657,8 @@ static __attribute__((noinline)) void spread_sum(int32_t *out)
         out[i] += spread_buf[i];
 }
 #endif
+/* ShinTech POLY6's chorus (eng_poly6.c poly6_post): the part's side buffer, its left (fx.c mix_spread) */
+static int32_t *poly6_side(track_t *t) { (void)t; return SPREAD_BUF(t); }
 
 /* render one block of a part into out (cleared here); returns the voices rendered */
 /* Channel bend is live performance state, outside projects/presets. Q8 semitones. */

@@ -49,6 +49,8 @@ _Static_assert(sizeof N_CHRD / sizeof N_CHRD[0] == CHRD_SET + 1u, "N_CHRD: SET l
 static const char *const N_CVOIC[] = {"CLOSE", "OPEN", "SPRD", "AUTO"};
 static const char *const N_CINV[] = {"AUTO", "ROOT", "1ST", "2ND", "3RD"};
 #include "chord_styles.h"              /* (tools/shintech/gen_styles.py) */
+static const char *const N_P6CHO[] = {"OFF", "I", "II", "I+II"};          /* ShinTech POLY6 (eng_poly6.c) */
+static const char *const N_P6MODE[] = {"4ENV", "8ENV", "4GATE", "8GATE"};
 static const char *const N_CSTY[] = {"OFF", CST_CODES};   /* ShinTech CHORD: STYLE (style.c) */
 _Static_assert(sizeof N_CSTY / sizeof N_CSTY[0] == CST_NSTY + 1u, "N_CSTY: OFF and the styles");
 #define CRNG_LO 36                    /* RANGE 0: C2 */
@@ -92,12 +94,8 @@ static const char *const N_MDST[] = {"OFF", "PITCH", "CUT", "SHP", "AMP", "PAN",
 static const char *const N_ATSNS[] = {"OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
 static const char *const N_ENGNAME[] = {"ANALOG", FELUCCA_FM4 ? "DIGITAL" : "-", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL", "GRAIN", "PHYS",
                                              "DRUM", "NOISE", "FM6",
-#if FELUCCA_SLICE
-                                             "SLICE",
-#endif
-#if FELUCCA_ADPCM
-                                             "ADPCM",
-#endif
+                                             FELUCCA_SLICE ? "SLICE" : "-", FELUCCA_ADPCM ? "ADPCM" : "-",
+                                             "POLY6",   /* (ShinTech: engine 15 in every build; an empty slot "-") */
 };
 
 static const char *const N_SLOT[] = {"A", "B", "C", "D", 0};   /* G_SLOT 1..4 (F_INT: the names split its range) */
@@ -205,6 +203,8 @@ static const param_desc_t TP[P_COUNT] = {
     [P_CHOLD] = PE("CHOLD", N_ONOFF, 0),                            /* (not HOLD: the ARP's P_AHOLD has it) */
     [P_CSTRM] = PD("STRUM", F_INT, 0, 60, 0),                       /* ms between a strum's notes, 0 AUTO */
     [P_CPAT] = PD("CPAT", F_INT, 0, 64, 0),                         /* ShinTech CHORD pattern: OFF, 1..64 (cpat.c) */
+    [P_P6CHO] = PE("BBD", N_P6CHO, 0),                              /* ShinTech POLY6: its chorus, */
+    [P_P6MODE] = PE("VOX", N_P6MODE, 0),                            /* .. 4 / 8 voices, the amp ENV / GATE */
 };
 
 /* the INSERT's A B C as its TYPE means them (TP's ranges and defaults): the drives DRIVE TONE LEVEL, CRUSH BITS RATE
@@ -524,6 +524,8 @@ static const page_t PAGES[] = {
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E7}},   /* ANALOG only (1.5, #104): TYPE CUT RES KTR */
+    {"POLY6", FAM_EDIT, SC_TRACK, GR_NONE, {P_P6CHO, P_P6MODE, P_LRATE, P_LFADE}},   /* ShinTech POLY6 only: CHORUS,
+                                                                           * VOICES, the LFO's RATE and DELAY (its fade) */
     {"LANES", FAM_EDIT, SC_TRACK, GR_NONE, {P_LN0, P_LN1, P_LN2, P_LN3}},   /* DRUM only: the lane levels */
     {"LANES 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_LN4, P_LN5, P_LN6, P_LN7}},
     {"SLICES", FAM_EDIT, SC_TRACK, GR_SLICES, {0xFF, 0xFF, 0xFF, 0xFF}},   /* SLICE only: the slices by hand (ui_slice.c) */

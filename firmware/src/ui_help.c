@@ -36,6 +36,7 @@ static const struct { const char *title, *hint; } HELP_PAGE[] = {
     {"PAT STEP", "[K2]NOTE[K3]TEMPO[SEQ]SETUP"},
     {"PAT SETUP", "[K1]LEN[K3]NEXT[SEQ]TOOLS"},
     {"PAT TOOLS", "[K1]STEP/PAT[OCT+]DO IT"},
+    {"POLY6", "[K1]CHORUS[K2]VOICES[EDIT]DCO"},
     {"EDIT 1", H_EDIT},
     {"EDIT 2", H_EDIT},
     {"FILTER", "[K1]LP BP HP[K2]CUTOFF[EDIT]VOICE"},

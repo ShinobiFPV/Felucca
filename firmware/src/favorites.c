@@ -23,6 +23,10 @@ static uint8_t *fav_bit(uint32_t engine, uint32_t preset, uint8_t *mask)   /* th
         return &favorites.factory[15][13];
     }
 #endif
+    if (engine == 15u && preset < 32u) {             /* ShinTech POLY6 (ENGI_POLY6): factory[15][14..17], bytes no firmware used */
+        *mask = (uint8_t)(1u << (preset % 8u));
+        return &favorites.factory[15][14u + preset / 8u];
+    }
     return 0;
 }
 static int favorite_has(uint32_t engine, uint32_t preset)

@@ -51,7 +51,8 @@ source under the same licence. That includes devices that ship with modified Fel
 
 The ShinTech CHORD fork adds files of its own, all GPL-3.0-only (Copyright (C) 2026 William Kew, ShinTech
 Electronics): `firmware/src/chordset.c`, `firmware/src/proj_ext.c`, `firmware/src/style.c`, `firmware/src/cpat.c`,
-`firmware/src/cpat_store.c`, `firmware/src/ui_cpat.c`, `tests/cpat_test.c`, `tests/cpat_store_test.c`, `tools/shintech/` (the chord
+`firmware/src/cpat_store.c`, `firmware/src/ui_cpat.c`, `firmware/src/eng_poly6.c`, `tests/cpat_test.c`,
+`tests/cpat_store_test.c`, `tests/poly6_test.c`, `tools/shintech/` (the chord
 set and style generators and their data, `tools/shintech/chordsets/`, `tools/shintech/styles/`), `tests/chordset_test.c`,
 `tests/chordmode_test.c`, `tests/style_test.c`, `tests/funb_test.c`, `tests/funb_save_test.c`, `tests/shintech/`, and the `*-SHINTECH.md` and
 `docs/shintech/` documents. It uses no third-party code beyond what is listed below.

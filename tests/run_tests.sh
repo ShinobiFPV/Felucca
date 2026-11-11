@@ -62,6 +62,10 @@
 #                   rates only), strums STRUM ms apart up and down, lengths, a release stops it, CHOLD, a chord changed
 #                   on the go, VAR, STYLE OFF, PLAY, the external clock's pulses, every variation balanced; the data
 #                   (tools/shintech/gen_styles.py -> build/gen/chord_styles.h): the grammar, the checks, today's table.
+# ShinTech POLY6 (tests/poly6_test.c): the engine (firmware/src/eng_poly6.c): its ladder's frequency response against
+#                   four TPT poles', RES's peak and self-oscillation, bounded at every corner; the BBD chorus's delay sweep
+#                   (I, II, I+II: range and rate, L / R opposite) and an impulse through it; stereo; VOICES 4 / 8, GATE;
+#                   every preset (sounds, no DC, no clipping); the cost against ANALOG's (an estimate); demos.
 # ShinTech CHORD patterns (tests/cpat_test.c, tests/cpat_store_test.c): the pattern player (firmware/src/cpat.c) on the real
 #                   sequencer, keys and MIDI OUT (chords at their steps, TIE / REST, single notes, a step's STYLE and
 #                   tempo, hand chords, NEXT, CPAT changes, a SONG section's pattern, live recording), the SEQ > CHORD PAT
@@ -311,6 +315,9 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "ShinTech CHORD patterns: chords at their steps, TIE REST, notes, STYLE, tempo, hand chords, NEXT, SONG, recording, the cache, the pages, step entry, tools, undo" "$OUT/cpat_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/cpat_store_test" tests/cpat_store_test.c -lm
     run "ShinTech CHORD pattern bank on flash: 64 read back after power-off, an object's others kept, power cuts, a damaged copy, quiet writes" "$OUT/cpat_store_test"
+    $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/poly6_test" tests/poly6_test.c -lm
+    mkdir -p build/poly6_demo
+    run "ShinTech POLY6: the ladder's response and self-oscillation, the chorus's delay sweep, stereo, VOICES, GATE, 32 presets, cost, demos" "$OUT/poly6_test" build/poly6_demo
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/speaker_test" tests/speaker_test.c -lm
     run "SPEAKER EQ: FLAT / LOWCUT / BASS+ responses, BASS+ harmonics of the bass, the sub cut, no offset after, headroom on a full-scale kick (#180)" "$OUT/speaker_test"
     run "DSP render (ANALOG preset 0)" "$OUT/hostsim" 0 0 1 "$OUT/render.wav"

@@ -7,6 +7,44 @@ release notes are in its wiki. Projects that use the new features will not open 
 
 ## Unreleased
 
+### Phase 4: POLY6
+
+- **POLY6, a six-voice-style analogue polysynth engine** (`firmware/src/eng_poly6.c`, GPL-3.0, engine 15), after DRUM in
+  the engine list (PRESETS, its ENG knob, the EDIT layer's 14th white key, the editor). Per voice: one DCO (a
+  band-limited saw and pulse from one phase), PWM (PW by hand, the LFO through LFO DEST SHP, the envelope through ENV DEST
+  SHP), a square sub an octave down, noise; a 24 dB / octave zero-delay-feedback ladder (four trapezoidal poles, the
+  feedback solved per sample, a soft clip in the loop: it self-oscillates at the top of RES and thins the bass as RES
+  rises), KYBD tracking (127: one to one). Over the part, as on the original's signal path: AC coupling, the 4-position
+  HPF (BOOST: a low shelf up, FLAT, two rising corners) and the **BBD chorus**: one delay line read at two taps a triangle
+  LFO sweeps in opposite directions left and right (I 0.513 Hz, II 0.863 Hz over 1.66 .. 5.35 ms; I+II 9.75 Hz, 3.0 ..
+  3.6 ms), its input and output roll-off and a little hiss, true stereo through the part's side path (a host change:
+  fx.c mix_part / mix_spread take its two sides at full width while the chorus is on).
+- **Controls:** EDIT 1 DCO: WAVE (SAW PULSE BOTH NONE) PW SUB NOISE; EDIT 2 VCF: CUT RES KYBD HPF; EDIT > POLY6:
+  CHORUS (OFF I II I+II), VOICES (4ENV 8ENV 4GATE 8GATE: 4 voices by default, 8 the option; GATE: the VCA follows the
+  key, the ADSR the filter only), the LFO's RATE and DELAY (its fade-in). The rest is the track's, as for every engine:
+  one ADSR for the VCF (ENV DEST FLT: amount and, by its sign, polarity) and the VCA, the LFO's routings (PIT: the DCO's
+  LFO, FLT: the VCF's, SHP: PWM), LEVEL, the sends to Felucca's delay and reverb, locks, automation, the matrix, MIDI
+  LEARN (CC74 CUT, CC71 RES as ANALOG).
+- **32 original presets:** pads (WARM PAD, GLASS PAD, SLOW SWEEP, DARK PAD), strings, brass, poly and house stabs, a
+  rave chord, house organ, percussive organ, e-piano, house piano, clav, plucks, harp, bell keys, basses (FAT, SUB, ACID,
+  PULSE, SEQ), leads, WHISTLE, NOISE SWEEP, WIND; each with its own chorus, voices and LFO (POLY6_X), categories for
+  PRESETS > LIST, favourites (settings bytes no firmware used).
+- **Formats:** two track parameters BBD and VOX (117, 118: P_E0 119, P_COUNT 127, the most parameters ids allow) in the
+  project extension. A project with a POLY6 track is FUNB. **User presets:** a record that uses the fork (POLY6, or CHRD
+  SET) is written as version 6 (the same layout as 4): upstream Felucca shows it empty and keeps its bytes; every other
+  record stays version 4, as upstream reads it. Engine 15 is POLY6 in every build: a slot a build leaves out (SLICE 13,
+  ADPCM 14) holds a silent engine nobody can pick, so stored engine numbers never shift.
+- **CPU (an estimate):** this host has no instruction counter; POLY6 renders in 2.3 x ANALOG's host time a voice (2.4 x
+  with the chorus). Scaled by ANALOG's known device cost that is about **28 % of the device for 4 voices with the chorus
+  and 54 % for 8** (the shed check drops voices past the limit). MENU > SYSTEM > INFO > CPU on the FM-1 is the figure to
+  trust.
+- Tests: `tests/poly6_test.c` (the ladder against four TPT poles' response at three cutoffs, RES's peak, self-oscillation
+  at the cutoff, bounded at every corner; the chorus's delay range and rate for I / II / I+II, left and right opposite,
+  an impulse out of the left tap at its delay; stereo on / off; VOICES 4 / 8; GATE; every preset sounds with no DC or
+  clipping; the cost; demos in `build/poly6_demo`). Upstream tests that pinned the engine count, its display order, the
+  EDIT layer's keys, P_COUNT, the user preset versions and MIDI LEARN's id gap follow the new layout. Cost: 4.6 KB of
+  code; its chorus lives in the part's engine memory (no new RAM).
+
 ### Phase 3: chord pattern sequencer
 
 - **64 chord patterns, up to 64 steps each** (the full count the storage plan allowed), one bank for the whole device

@@ -96,6 +96,12 @@ engine parameters, which moved to 117..124: P_COUNT 125, P_E0 117. The 64 chord 
 own in flash (firmware/src/cpat_store.c), not part of a project or a backup; no command reads or writes them yet
 (Phase 5).
 
+**ShinTech POLY6 (127 parameters, 16 engines):** `BBD` (117, POLY6's chorus: OFF I II I+II) and `VOX` (118: 4ENV 8ENV
+4GATE 8GATE) before the engine parameters, which moved to 119..126: P_COUNT 127, P_E0 119 (the last ids MIDI LEARN's codes
+leave: no gap below ML_E0 120 now). `INFO` reports 16 engines: 13 `SLICE` (or `-`), 14 `ADPCM` (or `-` when not built),
+15 `POLY6`; a `-` is a number nobody can pick. A user preset record of version 6 is version 4's layout for a sound that
+uses the fork (POLY6, CHRD SET).
+
 ## Framing
 
 A request is `F0 7D 46 4C <cmd> <args...> F7`:

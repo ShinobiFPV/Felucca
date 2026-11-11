@@ -89,7 +89,7 @@ static int px_uses(const project_t *q)
 {
     uint32_t t, i;
     for (t = 0; t < NTRK; t++) {
-        if (q->t[t].p[P_CHRD] >= CHRD_SET)
+        if (q->t[t].p[P_CHRD] >= CHRD_SET || q->t[t].engine == ENGI_POLY6)   /* (POLY6: no engine upstream has) */
             return 1;
         for (i = PX_FIRST; i < P_E0; i++)
             if (q->t[t].p[i] != param_desc_of(q->t[t].engine % NENGINES, i)->def)

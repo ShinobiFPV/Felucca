@@ -431,6 +431,8 @@ static int page_visible(uint32_t i)
 {
     if (PAGES[i].scope == SC_TRACK && PAGES[i].id[0] >= P_LN0 && PAGES[i].id[0] <= P_LN7)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
+    if (PAGES[i].id[0] == P_P6CHO)                    /* ShinTech POLY6's page */
+        return TSEL->eng_req % NENGINES == ENGI_POLY6;
     if (PAGES[i].id[0] == P_FTYPE)                    /* FILTER (1.5, #104): ANALOG's */
         return ENGINES[TSEL->eng_req % NENGINES] == &ENG_ANALOG;
     if (PAGES[i].id[0] == P_CSET || PAGES[i].id[0] == P_CVOIC || PAGES[i].id[0] == P_CSTY ||   /* ShinTech: CHORD */
@@ -1399,6 +1401,7 @@ static void apply_preset_to(track_t *t, uint32_t pi)
             t->p[P_DIST + i] = (int16_t)(pr->fx[i] ? pr->fx[i] - 1 : FX_DEF[i]);
     }
     fm6_track_loaded(t);                              /* FM6: the preset's patch (its SLOT) */
+    poly6_preset_x(t, pi);                            /* ShinTech POLY6: its CHORUS, VOICES and LFO */
     load_end(t);
 }
 

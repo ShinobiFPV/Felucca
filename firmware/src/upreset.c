@@ -50,6 +50,8 @@
 #define UP_USED 0xA5u
 #define UP_VER 4u                                /* 2 since 1.0; 1 is read too (PHYS MODEL 2 was DUST) */
 #define UP_VER_GRID 5u                           /* 2 with a drum grid as the pattern (see the top) */
+#define UP_VER_X 6u                              /* ShinTech: 4's layout, a record that uses the fork (POLY6, a CHORD or
+                                                  * POLY6 value off its default): upstream shows it empty, keeps its bytes */
 #define UP_BANK_MAGIC 0x31425055u                /* "UPB1" */
 typedef struct {
     uint8_t used, ver, engine, np;               /* UP_USED, UP_VER, engine, P_COUNT when stored */
@@ -107,7 +109,7 @@ static void up_set_cat(up_rec_t *r, uint32_t c)  /* c CAT_BASS..CAT_OTHER; a rec
 
 static int up_valid(const up_rec_t *r)
 {
-    if (!(r->used == UP_USED && r->ver >= 1u && r->ver <= UP_VER_GRID && r->engine < NENGINES &&
+    if (!(r->used == UP_USED && r->ver >= 1u && r->ver <= UP_VER_X && r->engine < NENGINES &&
           r->np >= 8u && r->np <= (r->ver >= 4u ? UP_PMAX * 2u : UP_PMAX) && r->name[0])) return 0;
     if (r->ver >= 4u) for (uint32_t i = 0; i < r->np; i++) if (r->packed[i] > 191u) return 0;
     return 1;
@@ -116,6 +118,14 @@ static int up_valid(const up_rec_t *r)
 static int up_used(uint32_t k) { return k < UP_SLOTS && up_valid(up_rec(k)); }
 
 static int up_grid(const up_rec_t *r) { return r->ver == 3u || r->ver == UP_VER_GRID; }
+static int16_t up_value(const up_rec_t *r, uint32_t k);
+/* ShinTech: record r uses the fork (POLY6; CHRD SET, whose values only it plays): version UP_VER_X */
+static void up_fork_ver(up_rec_t *r)
+{
+    uint32_t x = r->engine == ENGI_POLY6 || up_value(r, P_CHRD) == 10;   /* (10: params.c CHRD_SET) */
+    if (x && r->ver == UP_VER)
+        r->ver = UP_VER_X;
+}
 static int16_t up_value(const up_rec_t *r, uint32_t k) { return r->ver >= 4u ? (int16_t)r->packed[k] - 64 : r->p[k]; }
 static void up_set_value(up_rec_t *r, uint32_t k, int16_t v)
 {
@@ -246,6 +256,7 @@ static int up_parse(const uint8_t *a, uint32_t na, up_rec_t *r, uint32_t *slot)
             if (value < -64 || value > 127) return 1;
             up_set_value(r, i, (int16_t)value);
         }
+    up_fork_ver(r);
     if (na >= k + 33u + 16u && a[k + 32u] == 1u) {    /* a drum grid */
         r->ver = UP_VER_GRID;
         for (i = 0; i < 16u; i++) {
@@ -408,6 +419,7 @@ static int up_store_cat(uint32_t k, const char *name, uint32_t cat)
     up_set_name(&r, k, name);
     for (i = 0; i < P_COUNT; i++)
         up_set_value(&r, i, motion_base_value(TSEL, i));
+    up_fork_ver(&r);
     up_pat_from(&r, TSEL->step);
     up_set_cat(&r, cat ? cat : track_cat(TSEL));
     if (drum_track(TSEL)) {                             /* a DRUM track that strikes a lane: its grid */

@@ -1687,7 +1687,7 @@ function makeMockDevice(opt = {}) {
     E("MIDI", ["USB", "TRS"], 0), E("SYNC", NDASH, 0), E("ROUT", ["CH1-4", "SEL", "CH5-8", "CH9-12", "CH13-16", "TRACK"], 0), D("CPU", F.INT, 0, 0, 0),
     D("SLOT", F.INT, 1, 4, 1), E("NAME", NDASH, 0), E("LOAD", NGO, 0), E("SAVE", NGO, 0),
     E("ENG", ["ANALOG", "-", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL",
-      "GRAIN", "PHYS", "DRUM", "NOISE", "FM6", "SLICE"], 0), E("SET", NGO, 0),
+      "GRAIN", "PHYS", "DRUM", "NOISE", "FM6", "SLICE", "-", "POLY6"], 0), E("SET", NGO, 0),
     E("CLRSQ", NGO, 0), E("INIT", NGO, 0),
     E("TYPE", ["ROOM", "SPRING", "HALL"], 2),       /* G_RTYPE (id 24, was G_DRCH): the reverb's model (HALL: 1.2) */
     D("-", F.INT, 0, 0, 0), D("-", F.INT, 0, 0, 0),   /* G_DRLVL, G_DRREV: inert since 1.0 */
@@ -1774,6 +1774,22 @@ function makeMockDevice(opt = {}) {
         E("DIV", ["4", "8", "16", "32", "AUTO", "MAN"], 2), D("START", F.INT, 0, 31, 0), D("PTCH", F.SEMI, -24, 24, 0),
         E("MODE", ["ONE", "GATE", "LOOP"], 0), E("REV", ["OFF", "ON"], 0), D("DCAY", F.TIME, 0, 127, 127), D("TONE", F.INT, 0, 127, 127)],
       presets: [P("CHOP", [0, 2, 0, 0, 0, 0, 127, 127], [0, 127, 127, 30], 0, 9), P("STUTTER", [0, 1, 0, 0, 1, 0, 90, 110], [0, 127, 127, 12], 0, 10)] },
+    { name: "-", titles: ["-", "-"], edit: [NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE], presets: [] },   /* 14: ADPCM's, not built */
+    { name: "POLY6", titles: ["DCO", "VCF"], edit: [E("WAVE", ["SAW", "PULSE", "BOTH", "NONE"], 2), D("PW", F.PCT, 0, 127, 30),
+        D("SUB", F.PCT, 0, 127, 40), D("NOIS", F.PCT, 0, 127, 0), D("CUT", F.CUTOFF, 0, 127, 64), D("RES", F.PCT, 0, 127, 20),
+        D("KYBD", F.PCT, 0, 127, 64), E("HPF", ["BOOST", "FLAT", "1", "2"], 1)],   /* 15: ShinTech (firmware eng_poly6.c) */
+      presets: [
+        P("WARM PAD", [2, 30, 40, 0, 52, 20, 40, 1], [85, 90, 110, 95], 0), P("GLASS PAD", [1, 70, 0, 0, 70, 50, 70, 2], [70, 100, 100, 90], 0), P("SLOW SWEEP", [0, 0, 50, 0, 30, 70, 50, 1], [100, 110, 115, 100], 0),
+        P("DARK PAD", [2, 20, 70, 0, 38, 30, 30, 0], [90, 90, 115, 100], 0), P("STRINGS", [0, 0, 30, 0, 66, 10, 64, 2], [75, 90, 112, 88], 0), P("OCT STRINGS", [2, 40, 90, 0, 72, 8, 64, 2], [70, 90, 112, 85], 0),
+        P("SOFT STRING", [0, 0, 40, 0, 56, 0, 50, 1], [95, 90, 115, 96], 0), P("BRASS", [0, 0, 40, 0, 40, 25, 70, 1], [40, 72, 96, 50], 0), P("SOFT BRASS", [2, 30, 30, 0, 44, 20, 60, 1], [55, 80, 100, 60], 0),
+        P("BRASS STAB", [0, 0, 50, 0, 36, 35, 70, 2], [10, 66, 60, 40], 0), P("POLY STAB", [2, 50, 60, 0, 48, 40, 64, 2], [0, 62, 30, 40], 0), P("HOUSE STAB", [1, 60, 40, 0, 58, 55, 64, 2], [0, 58, 0, 34], 0),
+        P("RAVE CHORD", [2, 20, 70, 0, 62, 45, 64, 2], [0, 70, 60, 40], 0), P("HOUSE ORGAN", [1, 0, 80, 0, 80, 10, 90, 2], [2, 40, 100, 25], 0), P("PERC ORGAN", [1, 40, 60, 0, 64, 20, 80, 2], [0, 52, 60, 30], 0),
+        P("E-PIANO", [1, 80, 20, 0, 50, 15, 90, 1], [0, 84, 20, 66], 0), P("HOUSE PIANO", [2, 70, 30, 0, 56, 10, 90, 2], [0, 80, 10, 60], 0), P("CLAV", [1, 100, 0, 0, 46, 40, 80, 3], [0, 60, 0, 40], 0),
+        P("PLUCK", [0, 0, 30, 0, 30, 35, 64, 2], [0, 66, 0, 55], 0), P("SYNC PLUCK", [2, 90, 0, 0, 34, 60, 70, 2], [0, 60, 0, 50], 0), P("HARP", [1, 30, 0, 0, 44, 20, 80, 2], [0, 80, 0, 80], 0),
+        P("BELL KEYS", [1, 110, 0, 0, 74, 80, 100, 3], [0, 92, 20, 84], 0), P("FAT BASS", [2, 30, 100, 0, 34, 30, 30, 0], [0, 60, 70, 20], 1), P("SUB BASS", [3, 0, 127, 0, 30, 0, 20, 0], [0, 60, 100, 20], 1),
+        P("ACID BASS", [0, 0, 40, 0, 28, 100, 40, 1], [0, 56, 20, 26], 1), P("PULSE BASS", [1, 60, 60, 0, 36, 40, 40, 1], [0, 58, 40, 24], 1), P("SEQ BASS", [2, 20, 80, 0, 26, 50, 50, 1], [0, 50, 10, 20], 1),
+        P("LEAD", [0, 0, 40, 0, 60, 30, 64, 1], [4, 70, 100, 50], 1), P("SQUARE LEAD", [1, 0, 50, 0, 66, 20, 64, 1], [2, 70, 100, 44], 1), P("WHISTLE", [3, 0, 0, 8, 70, 127, 127, 2], [20, 80, 110, 50], 1),
+        P("NOISE SWEEP", [3, 0, 0, 110, 20, 90, 0, 2], [100, 120, 100, 100], 0), P("WIND", [3, 0, 0, 120, 40, 70, 0, 1], [90, 100, 110, 95], 0)] },
   ];
   const FM6_E = ENG.findIndex((e) => e.name === "FM6"), FM6_OWN = FM6.FACTORY_PK.length, DRUM_E = ENG.findIndex((e) => e.name === "DRUM");
   /* factory PATTERNS[] (engines.c; the device loads them from SAVE > PHRASES, presets only suggest one): absolute
@@ -1815,8 +1831,9 @@ function makeMockDevice(opt = {}) {
     TP.push(E("STYLE", ["OFF", "ARP1", "ARP2", "BEAT1", "BEAT2", "BEAT3", "STRM1", "STRM2", "STRM3", "STRM4"], 0),
       D("VAR", F.INT, 0, 11, 0), E("CHOLD", ["OFF", "ON"], 0), D("STRUM", F.INT, 0, 60, 0));
     TP.push(D("CPAT", F.INT, 0, 64, 0));   /* .. its chord pattern (116: OFF, 1..64; firmware cpat.c) */
+    TP.push(E("BBD", ["OFF", "I", "II", "I+II"], 0), E("VOX", ["4ENV", "8ENV", "4GATE", "8GATE"], 0));   /* POLY6 (117, 118) */
   }
-  const P_COUNT = 125, G_COUNT = 27, NSTEP = 64, P_E0 = 117, G_ENGSEL = 20, P_SLCR = 45;
+  const P_COUNT = 127, G_COUNT = 27, NSTEP = 64, P_E0 = 119, G_ENGSEL = 20, P_SLCR = 45;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const enumOrig = (d, v) => d.fmt === F.ENUM && d.names ? aliasOf(d.names, v - d.min) + d.min : v;   /* params.c enum_orig */
   /* four tracks (firmware v3), four synth parts (1.0); engine / preset / p / step below are the selected track's */
@@ -2416,7 +2433,7 @@ async function readDevicePreferences(rq, info, names, previous = null) {
    and 4, once TRANH and PERC: PIANO 0), else the last with it (DRUM KIT 1..3, once HAND CYM H+CYM: 66 10 77 at 6 5 8;
    EDITOR_PROTOCOL.md). -> the original's index */
 function aliasOf(names, i) {
-  if (!names || names[i] == null) return i;
+  if (!names || names[i] == null || names[i] === "-") return i;   /* ("-": a reserved number, its own; ShinTech: two of them) */
   const k = names[0] === names[i] ? 0 : names.lastIndexOf(names[i]);
   return k >= 0 ? k : i;
 }
@@ -2438,7 +2455,7 @@ function enumShown(d) {
    the engine numbers. engineOrder(names): the indices of names in that order, "-" (a reserved number) left out; a name
    the list does not know (another firmware) follows in index order */
 const ENGINE_ORDER = ["ANALOG", "FM6", "DIGITAL", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL", "GRAIN", "PHYS", "NOISE",
-  "SLICE", "DRUM"];
+  "SLICE", "DRUM", "POLY6"];
 function engineOrder(names) {
   const rank = (n) => { const k = ENGINE_ORDER.indexOf(n); return k < 0 ? ENGINE_ORDER.length : k; };
   return (names || []).map((n, i) => i).filter((i) => names[i] !== "-")
