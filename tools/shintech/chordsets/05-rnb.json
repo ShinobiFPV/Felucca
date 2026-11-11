@@ -1,0 +1,141 @@
+{
+ "genre": "R&B",
+ "sets": [
+  {
+   "name": "SLOW JAM",
+   "chords": [
+    "Ebmaj9",
+    "Cm9",
+    "Fm9",
+    "Bb13",
+    "Abmaj7",
+    "Gm7",
+    "Fm11",
+    "Bb7sus4",
+    "Ebmaj7",
+    "Dbmaj7",
+    "Cm11",
+    "G7#9"
+   ]
+  },
+  {
+   "name": "VELVET",
+   "chords": [
+    "Dmaj9",
+    "Bm9",
+    "Em9",
+    "A13",
+    "Gmaj7",
+    "F#m7",
+    "Em11",
+    "A7sus4",
+    "Dmaj7",
+    "Cmaj7",
+    "Bm11",
+    "F#7#9"
+   ]
+  },
+  {
+   "name": "LATE NIGHT",
+   "chords": [
+    "Fm9",
+    "Bbm9",
+    "Eb13",
+    "Abmaj9",
+    "Dbmaj7",
+    "C7#9",
+    "Gm7b5",
+    "C7sus4",
+    "Fm11",
+    "Bbm11",
+    "Eb7sus4",
+    "Dbmaj9"
+   ]
+  },
+  {
+   "name": "SILK",
+   "chords": [
+    "Amaj9",
+    "F#m9",
+    "Bm9",
+    "E13",
+    "Dmaj7",
+    "C#m7",
+    "Bm11",
+    "E7sus4",
+    "Amaj7",
+    "Gmaj7",
+    "F#m11",
+    "C#7#9"
+   ]
+  },
+  {
+   "name": "90S",
+   "chords": [
+    "Cm7",
+    "Fm7",
+    "Bb7",
+    "Ebmaj7",
+    "Abmaj7",
+    "Dm7b5",
+    "G7#9",
+    "Gm7",
+    "Cm9",
+    "F9",
+    "Bb13",
+    "Ebmaj9"
+   ]
+  },
+  {
+   "name": "QUIET STORM",
+   "chords": [
+    "Gmaj9",
+    "Em9",
+    "Am9",
+    "D13",
+    "Cmaj7",
+    "Bm7",
+    "Am11",
+    "D7sus4",
+    "Gmaj7",
+    "Fmaj7",
+    "Em11",
+    "B7#9"
+   ]
+  },
+  {
+   "name": "TRAP SOUL",
+   "chords": [
+    "Bbm9",
+    "Gbmaj7",
+    "Dbmaj9",
+    "Ab6",
+    "Ebm9",
+    "Fm7",
+    "Gbmaj9",
+    "F7#9",
+    "Bbm11",
+    "Ebm7",
+    "Dbadd9",
+    "Cm7b5"
+   ]
+  },
+  {
+   "name": "MOONLIT",
+   "chords": [
+    "Ebm9",
+    "Bmaj7",
+    "Abm9",
+    "Db13",
+    "Gbmaj7",
+    "Fm7b5",
+    "Bb7#9",
+    "Bbm7",
+    "Ebm11",
+    "Abm11",
+    "Bmaj9",
+    "Db7sus4"
+   ]
+  }
+ ]
+}

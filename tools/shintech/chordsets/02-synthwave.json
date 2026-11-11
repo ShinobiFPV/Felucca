@@ -1,0 +1,141 @@
+{
+ "genre": "SYNTHWAVE",
+ "sets": [
+  {
+   "name": "NEON DRIVE",
+   "chords": [
+    "Am",
+    "F",
+    "C",
+    "G",
+    "Em",
+    "Dm",
+    "Fmaj7",
+    "Gsus4",
+    "Am7",
+    "E",
+    "Csus2",
+    "G/B"
+   ]
+  },
+  {
+   "name": "OUTRUN",
+   "chords": [
+    "Em",
+    "C",
+    "G",
+    "D",
+    "Am",
+    "Bm",
+    "Cmaj7",
+    "Dsus4",
+    "Em7",
+    "B7",
+    "Gsus2",
+    "D/F#"
+   ]
+  },
+  {
+   "name": "GRID",
+   "chords": [
+    "Dm",
+    "Bb",
+    "F",
+    "C",
+    "Gm",
+    "Am",
+    "Bbmaj7",
+    "Csus4",
+    "Dm7",
+    "A",
+    "Fadd9",
+    "C/E"
+   ]
+  },
+  {
+   "name": "CHROME",
+   "chords": [
+    "F#m",
+    "D",
+    "A",
+    "E",
+    "Bm",
+    "C#m",
+    "Dmaj7",
+    "Esus4",
+    "F#m7",
+    "C#7",
+    "Asus2",
+    "E/G#"
+   ]
+  },
+  {
+   "name": "NIGHT CITY",
+   "chords": [
+    "Cm",
+    "Ab",
+    "Eb",
+    "Bb",
+    "Fm",
+    "Gm",
+    "Abmaj7",
+    "Bbsus4",
+    "Cm9",
+    "G",
+    "Ebmaj7",
+    "Bb/D"
+   ]
+  },
+  {
+   "name": "LASER",
+   "chords": [
+    "Am",
+    "G",
+    "F",
+    "E",
+    "Dm",
+    "C",
+    "Bb",
+    "Esus4",
+    "Am9",
+    "Fmaj9",
+    "Gadd9",
+    "E7"
+   ]
+  },
+  {
+   "name": "VHS",
+   "chords": [
+    "Bm",
+    "G",
+    "D",
+    "A",
+    "Em",
+    "F#m",
+    "Gmaj7",
+    "Asus4",
+    "Bm7",
+    "F#",
+    "Dadd9",
+    "A/C#"
+   ]
+  },
+  {
+   "name": "SUNSET 86",
+   "chords": [
+    "Gm",
+    "Eb",
+    "Bb",
+    "F",
+    "Cm",
+    "Dm",
+    "Ebmaj7",
+    "Fsus4",
+    "Gm9",
+    "D",
+    "Bbmaj7",
+    "F/A"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,141 @@
+{
+ "genre": "LO-FI",
+ "sets": [
+  {
+   "name": "STUDY BEATS",
+   "chords": [
+    "Fmaj7",
+    "Em7",
+    "Dm7",
+    "Cmaj7",
+    "Bbmaj7",
+    "A7#9",
+    "Gm9",
+    "C9",
+    "Fmaj9",
+    "Am9",
+    "Dm9",
+    "Gm7/C"
+   ]
+  },
+  {
+   "name": "RAINY WINDOW",
+   "chords": [
+    "Cmaj9",
+    "Bm7b5",
+    "E7b9",
+    "Am9",
+    "Fmaj9",
+    "Em9",
+    "Dm9",
+    "G13",
+    "Cmaj7",
+    "Am11",
+    "Dm11",
+    "G7sus4"
+   ]
+  },
+  {
+   "name": "TAPE DUST",
+   "chords": [
+    "Ebmaj9",
+    "Dm7b5",
+    "G7#9",
+    "Cm9",
+    "Abmaj9",
+    "Gm9",
+    "Fm9",
+    "Bb13",
+    "Ebmaj7",
+    "Cm11",
+    "Fm11",
+    "Bb7sus4"
+   ]
+  },
+  {
+   "name": "CAFE",
+   "chords": [
+    "Gmaj9",
+    "F#m7b5",
+    "B7b9",
+    "Em9",
+    "Cmaj9",
+    "Bm9",
+    "Am9",
+    "D13",
+    "Gmaj7",
+    "Em11",
+    "Am11",
+    "D7sus4"
+   ]
+  },
+  {
+   "name": "BEDROOM TAPE",
+   "chords": [
+    "Dmaj9",
+    "Bm9",
+    "Gmaj7",
+    "F#m7",
+    "Em9",
+    "A13",
+    "Dmaj7/F#",
+    "Gm6",
+    "Bm11",
+    "C#m7b5",
+    "F#7#9",
+    "A7sus4"
+   ]
+  },
+  {
+   "name": "HAZE",
+   "chords": [
+    "Abmaj7",
+    "Fm9",
+    "Dbmaj9",
+    "Eb6",
+    "Cm7",
+    "Bbm9",
+    "Gbmaj7#11",
+    "C7b9",
+    "Fm11",
+    "Dbm6",
+    "Abadd9",
+    "Eb7sus4"
+   ]
+  },
+  {
+   "name": "NOSTALGIA",
+   "chords": [
+    "Bbmaj9",
+    "Gm9",
+    "Cm9",
+    "F13",
+    "Dm7",
+    "Ebmaj7",
+    "Ebm6",
+    "D7#9",
+    "Gm11",
+    "Am7b5",
+    "Bb69",
+    "F7sus4"
+   ]
+  },
+  {
+   "name": "LATE BUS",
+   "chords": [
+    "Am9",
+    "Fmaj7",
+    "Cmaj9",
+    "Gadd9",
+    "Dm9",
+    "Em7",
+    "Fmaj9",
+    "E7#9",
+    "Am11",
+    "Dm11",
+    "Bbmaj7",
+    "Esus4"
+   ]
+  }
+ ]
+}

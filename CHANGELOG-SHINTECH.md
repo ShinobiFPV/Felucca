@@ -7,6 +7,19 @@ release notes are in its wiki. Projects that use the new features will not open 
 
 ## Unreleased
 
+### Phase 1: CHORD mode and chord sets
+
+- **Chord set data.** 100 original chord sets in 12 genres (POP 9, SYNTHWAVE 8, HOUSE 9, TECHNO 8, R&B 8, NEO SOUL 9,
+  JAZZ 9, LO-FI 8, CINEMATIC 8, FUNK 8, GOSPEL 8, MINIMAL 8), 12 chords each, written as chord symbols in
+  `tools/shintech/chordsets/<genre>.json` ("Fmaj9", "Dm7/G", optionally "open" / "spread" and an inversion "i1").
+  `tools/shintech/gen_chords.py` checks them and writes `build/gen/chord_sets.h` at build time: 26 distinct shapes, 3
+  bytes a chord, 5,056 B. Edit the JSON and rebuild; no C to touch.
+- `firmware/src/chordset.c`: a set's chord (root, shape, slash bass, default voicing and inversion), and a chord's
+  name from its notes (9ths, 11ths, 13ths, altered, sus, 6/9, slash): "Fmaj9", "E7#9", "Am/G". Names use sharps.
+- Tests: `tests/chordset_test.c` and `tests/shintech/test_chordsets.py` (the symbol grammar, the generator's
+  checks, the table made from today's data, and each of the 1,200 factory chords' firmware name read back to its
+  notes), in `tests/run_tests.sh`.
+
 ### Phase 0: build, baseline, gap analysis
 
 - Branch `chord` from `upstream/main` in the existing ShinobiFPV forks (Felucca and Felucca-WebApp), checked out as

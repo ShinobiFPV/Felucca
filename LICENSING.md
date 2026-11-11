@@ -49,6 +49,11 @@ You may use, study, change and share Felucca under the GPL. If you distribute Fe
 firmware derived from it, you must also give your recipients its complete corresponding
 source under the same licence. That includes devices that ship with modified Felucca inside.
 
+The ShinTech CHORD fork adds files of its own, all GPL-3.0-only (Copyright (C) 2026 William Kew, ShinTech
+Electronics): `firmware/src/chordset.c`, `tools/shintech/` (the chord set generator and its data,
+`tools/shintech/chordsets/`), `tests/chordset_test.c`, `tests/shintech/`, and the `*-SHINTECH.md` and
+`docs/shintech/` documents. It uses no third-party code beyond what is listed below.
+
 ## Hügelton Instruments' own work
 
 All by Hügelton Instruments (Leo Kuroshita), in this tree:

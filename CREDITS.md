@@ -34,3 +34,10 @@ thanks the work below; each keeps its own licence (see [LICENSE](LICENSE), [LICE
   [gospodindilly-ops](https://github.com/gospodindilly-ops) (the second core, #247),
   [bonszaimusic](https://www.youtube.com/@bonszaimusic) / [fgunited](https://github.com/fgunited)
   (external MIDI-clock sequencer and ARP phase drift fix, #269; TRS MIDI clock timestamping under CC load, #258)
+
+## ShinTech CHORD fork
+
+This fork (branch `chord` of [ShinobiFPV/Felucca](https://github.com/ShinobiFPV/Felucca)) is by William Kew, ShinTech
+Electronics, GPL-3.0-only like Felucca: CHORD mode, its chord sets, styles and pattern sequencer, and the POLY6 engine.
+The chord sets, styles and presets are written for it from scratch. Everything above is upstream Felucca's and keeps its
+credits; projects that use the fork's features do not open on upstream Felucca.

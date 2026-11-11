@@ -1,0 +1,141 @@
+{
+ "genre": "CINEMATIC",
+ "sets": [
+  {
+   "name": "EPIC",
+   "chords": [
+    "Dm spread",
+    "Bb spread",
+    "F spread",
+    "C spread",
+    "Gm",
+    "A",
+    "Bbmaj7",
+    "Csus4",
+    "Dsus2",
+    "A/C#",
+    "F/A",
+    "Dm/F"
+   ]
+  },
+  {
+   "name": "HORIZON",
+   "chords": [
+    "C open",
+    "E open",
+    "Am open",
+    "F open",
+    "Fm",
+    "Ab",
+    "Bb",
+    "G",
+    "Csus2",
+    "Ebmaj7",
+    "Dm/F",
+    "Gsus4"
+   ]
+  },
+  {
+   "name": "TENSION",
+   "chords": [
+    "Cm",
+    "Ab",
+    "Db",
+    "G",
+    "Fm",
+    "Bbm",
+    "Dbmaj7#11",
+    "Gsus4",
+    "Cmadd9",
+    "Eb/G",
+    "Abmaj7",
+    "Bdim7"
+   ]
+  },
+  {
+   "name": "HEROES",
+   "chords": [
+    "D spread",
+    "Bb spread",
+    "C spread",
+    "G spread",
+    "F",
+    "A",
+    "Dsus4",
+    "Gm",
+    "Dsus2",
+    "Bb/D",
+    "C/E",
+    "A7sus4"
+   ]
+  },
+  {
+   "name": "FROZEN LAKE",
+   "chords": [
+    "Em",
+    "Cmaj7",
+    "G",
+    "D",
+    "Am",
+    "Bm",
+    "Cmaj7#11",
+    "Dsus4",
+    "Emadd9",
+    "Bsus4",
+    "G/B",
+    "Am/C"
+   ]
+  },
+  {
+   "name": "DESERT",
+   "chords": [
+    "Am",
+    "Bb",
+    "Gm",
+    "A",
+    "Dm",
+    "F",
+    "Bbmaj7",
+    "Asus4",
+    "Amadd9",
+    "E7b9",
+    "C/E",
+    "Gm/Bb"
+   ]
+  },
+  {
+   "name": "SPACE",
+   "chords": [
+    "Fmaj7#11 open",
+    "Dmaj7#11 open",
+    "Emadd9",
+    "Cmaj9",
+    "Ab/Bb",
+    "Gsus2",
+    "Bbmaj7#11",
+    "Asus4",
+    "Dsus2",
+    "Ebmaj7#11",
+    "F#m11",
+    "Bsus2"
+   ]
+  },
+  {
+   "name": "ELEGY",
+   "chords": [
+    "Gm",
+    "Eb",
+    "Cm",
+    "D",
+    "Bb",
+    "F",
+    "Ebmaj7",
+    "Dsus4",
+    "Gmadd9",
+    "D7b9",
+    "Cm/Eb",
+    "Bb/D"
+   ]
+  }
+ ]
+}

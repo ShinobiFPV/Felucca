@@ -1,0 +1,158 @@
+{
+ "genre": "HOUSE",
+ "sets": [
+  {
+   "name": "DEEP CLUB",
+   "chords": [
+    "Am9",
+    "Dm9",
+    "Gm9",
+    "Cm9",
+    "Fmaj9",
+    "Bbmaj9",
+    "Em7",
+    "A7sus4",
+    "Dm11",
+    "G9",
+    "Cmaj9",
+    "E7#9"
+   ]
+  },
+  {
+   "name": "ORGAN",
+   "chords": [
+    "Cm7",
+    "Fm7",
+    "Bbm7",
+    "Ebm7",
+    "Abmaj7",
+    "Dbmaj7",
+    "G7sus4",
+    "Gm7",
+    "Cm9",
+    "F9",
+    "Bb7sus4",
+    "Eb6"
+   ]
+  },
+  {
+   "name": "GARAGE",
+   "chords": [
+    "Fm9",
+    "Bbm9",
+    "Ebmaj9",
+    "Abmaj9",
+    "Dbmaj7",
+    "C7sus4",
+    "Gm7b5",
+    "C7#9",
+    "Fm11",
+    "Bb13",
+    "Eb9",
+    "Abmaj7/C"
+   ]
+  },
+  {
+   "name": "PIANO HOUSE",
+   "chords": [
+    "F",
+    "C/E",
+    "Dm7",
+    "Bb",
+    "Gm7",
+    "Am7",
+    "Bbmaj7",
+    "C",
+    "Fadd9",
+    "Csus4",
+    "Dm9",
+    "Bb/C"
+   ]
+  },
+  {
+   "name": "CHICAGO",
+   "chords": [
+    "Dm7",
+    "Gm7",
+    "Cm7",
+    "Fm7",
+    "Bbmaj7",
+    "Ebmaj7",
+    "A7sus4",
+    "A7",
+    "Dm9",
+    "G9",
+    "Cm11",
+    "Ebmaj9"
+   ]
+  },
+  {
+   "name": "SOULFUL",
+   "chords": [
+    "Ebmaj9",
+    "Dm7",
+    "Cm9",
+    "Bbmaj7",
+    "Abmaj9",
+    "G7#9",
+    "Fm9",
+    "Bb13",
+    "Ebmaj7/G",
+    "Abmaj7/Bb",
+    "Cm11",
+    "Gm7"
+   ]
+  },
+  {
+   "name": "JACKIN",
+   "chords": [
+    "Gm7",
+    "Cm7",
+    "Fm7",
+    "Bbm7",
+    "Ebmaj7",
+    "Abmaj7",
+    "D7sus4",
+    "D7#9",
+    "Gm9",
+    "C9",
+    "Fm11",
+    "Bb9"
+   ]
+  },
+  {
+   "name": "SUNRISE",
+   "chords": [
+    "Amaj9",
+    "F#m9",
+    "Dmaj9",
+    "E7sus4",
+    "C#m7",
+    "Bm11",
+    "Dmaj7/E",
+    "E9",
+    "Aadd9",
+    "F#m11",
+    "Bm9",
+    "C#7#9"
+   ]
+  },
+  {
+   "name": "LOFT",
+   "chords": [
+    "Em9",
+    "Am9",
+    "Dm9",
+    "Gmaj9",
+    "Cmaj9",
+    "F#m7b5",
+    "B7#9",
+    "Bm7",
+    "Em11",
+    "A13",
+    "Dmaj7",
+    "B7sus4"
+   ]
+  }
+ ]
+}

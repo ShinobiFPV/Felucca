@@ -1,0 +1,141 @@
+{
+ "genre": "GOSPEL",
+ "sets": [
+  {
+   "name": "SUNDAY MORN",
+   "chords": [
+    "C",
+    "F/C",
+    "Am7",
+    "Dm7",
+    "G7sus4",
+    "G13",
+    "Fmaj7",
+    "Em7",
+    "A7#9",
+    "Dm9",
+    "Cmaj9",
+    "C#dim7"
+   ]
+  },
+  {
+   "name": "PRAISE",
+   "chords": [
+    "Ab",
+    "Db/Ab",
+    "Fm9",
+    "Bbm9",
+    "Eb13",
+    "Eb7sus4",
+    "Dbmaj9",
+    "Cm7",
+    "F7b9",
+    "Bbm11",
+    "Abmaj9",
+    "Ddim7"
+   ]
+  },
+  {
+   "name": "CHOIR",
+   "chords": [
+    "F",
+    "Bb/F",
+    "Dm9",
+    "Gm9",
+    "C13",
+    "C7sus4",
+    "Bbmaj9",
+    "Am7",
+    "D7#9",
+    "Gm11",
+    "Fmaj9",
+    "Bdim7"
+   ]
+  },
+  {
+   "name": "AMEN",
+   "chords": [
+    "Eb",
+    "Ab/Eb",
+    "Cm9",
+    "Fm9",
+    "Bb13",
+    "Bb7sus4",
+    "Abmaj9",
+    "Gm7",
+    "C7b9",
+    "Fm11",
+    "Ebmaj9",
+    "Adim7"
+   ]
+  },
+  {
+   "name": "WALK UP",
+   "chords": [
+    "Db",
+    "Gb/Db",
+    "Bbm9",
+    "Ebm9",
+    "Ab13",
+    "Ab7sus4",
+    "Gbmaj9",
+    "Fm7",
+    "Bb7#9",
+    "Ebm11",
+    "Dbmaj9",
+    "Gdim7"
+   ]
+  },
+  {
+   "name": "HYMN",
+   "chords": [
+    "G",
+    "C/G",
+    "Em9",
+    "Am9",
+    "D13",
+    "D7sus4",
+    "Cmaj9",
+    "Bm7",
+    "E7b9",
+    "Am11",
+    "Gmaj9",
+    "C#dim7"
+   ]
+  },
+  {
+   "name": "REVIVAL",
+   "chords": [
+    "Bb",
+    "Eb/Bb",
+    "Gm9",
+    "Cm9",
+    "F13",
+    "F7sus4",
+    "Ebmaj9",
+    "Dm7",
+    "G7#9",
+    "Cm11",
+    "Bbmaj9",
+    "Edim7"
+   ]
+  },
+  {
+   "name": "TESTIFY",
+   "chords": [
+    "E",
+    "A/E",
+    "C#m9",
+    "F#m9",
+    "B13",
+    "B7sus4",
+    "Amaj9",
+    "G#m7",
+    "C#7b9",
+    "F#m11",
+    "Emaj9",
+    "A#dim7"
+   ]
+  }
+ ]
+}

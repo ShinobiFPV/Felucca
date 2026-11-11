@@ -1,0 +1,158 @@
+{
+ "genre": "POP",
+ "sets": [
+  {
+   "name": "FIRST LIGHT",
+   "chords": [
+    "C",
+    "G/B",
+    "Am",
+    "F",
+    "Dm7",
+    "Em7",
+    "Fmaj7",
+    "G",
+    "Am7",
+    "Csus2",
+    "Fadd9",
+    "Gsus4"
+   ]
+  },
+  {
+   "name": "HIGHWAY",
+   "chords": [
+    "G",
+    "D/F#",
+    "Em",
+    "C",
+    "Am7",
+    "Bm7",
+    "Cadd9",
+    "Dsus4",
+    "D",
+    "Em7",
+    "G/B",
+    "C/D"
+   ]
+  },
+  {
+   "name": "SUMMER HAZE",
+   "chords": [
+    "D",
+    "A/C#",
+    "Bm",
+    "G",
+    "Em7",
+    "F#m",
+    "Gmaj7",
+    "A",
+    "Dsus2",
+    "Bm7",
+    "Gadd9",
+    "A7sus4"
+   ]
+  },
+  {
+   "name": "BEDROOM POP",
+   "chords": [
+    "Fmaj7",
+    "Em7",
+    "Dm7",
+    "Cmaj7",
+    "Bbmaj7",
+    "Am7",
+    "Gm7",
+    "C7sus4",
+    "Fadd9",
+    "Dm9",
+    "Bb/C",
+    "Csus4"
+   ]
+  },
+  {
+   "name": "BALLAD",
+   "chords": [
+    "Eb",
+    "Bb/D",
+    "Cm",
+    "Ab",
+    "Fm7",
+    "Gm7",
+    "Abmaj7",
+    "Bbsus4",
+    "Bb",
+    "Ebsus2",
+    "Ab/Bb",
+    "Cm7"
+   ]
+  },
+  {
+   "name": "ANTHEM",
+   "chords": [
+    "A",
+    "E",
+    "F#m",
+    "D",
+    "Bm",
+    "C#m",
+    "Dmaj7",
+    "Esus4",
+    "Asus2",
+    "E/G#",
+    "F#m7",
+    "D/E"
+   ]
+  },
+  {
+   "name": "HEARTBREAK",
+   "chords": [
+    "Am",
+    "F",
+    "C",
+    "G",
+    "Dm",
+    "Em",
+    "Am7",
+    "Fmaj7",
+    "Csus2",
+    "G/B",
+    "E7",
+    "Esus4"
+   ]
+  },
+  {
+   "name": "SUNDAY",
+   "chords": [
+    "Bb",
+    "F/A",
+    "Gm",
+    "Eb",
+    "Cm7",
+    "Dm7",
+    "Ebmaj7",
+    "F",
+    "Bbadd9",
+    "Gm7",
+    "Ebadd9",
+    "F7sus4"
+   ]
+  },
+  {
+   "name": "MIDNIGHT POP",
+   "chords": [
+    "C#m",
+    "A",
+    "E",
+    "B",
+    "F#m7",
+    "G#m7",
+    "Amaj7",
+    "B/D#",
+    "C#m7",
+    "Esus2",
+    "Aadd9",
+    "G#7"
+   ]
+  }
+ ]
+}

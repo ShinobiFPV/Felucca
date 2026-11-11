@@ -1,0 +1,158 @@
+{
+ "genre": "NEO SOUL",
+ "sets": [
+  {
+   "name": "WARM KEYS",
+   "chords": [
+    "Dm9",
+    "G13",
+    "Cmaj9",
+    "Fmaj9",
+    "Bm7b5",
+    "E7#9",
+    "Am9",
+    "Am11",
+    "Dm11",
+    "G7sus4",
+    "Cmaj7",
+    "E7b9"
+   ]
+  },
+  {
+   "name": "BROWN SUGAR",
+   "chords": [
+    "Ebm9",
+    "Ab13",
+    "Dbmaj9",
+    "Gbmaj9",
+    "Cm7b5",
+    "F7#9",
+    "Bbm9",
+    "Bbm11",
+    "Ebm11",
+    "Ab7sus4",
+    "Dbmaj7",
+    "F7b9"
+   ]
+  },
+  {
+   "name": "SPIRIT",
+   "chords": [
+    "Fmaj9",
+    "Em7",
+    "Am9",
+    "Dm9",
+    "G13",
+    "Cmaj9",
+    "Bbmaj9",
+    "A7#9",
+    "Dm11",
+    "Gm9",
+    "C7sus4",
+    "Bb/C"
+   ]
+  },
+  {
+   "name": "PHONE TALK",
+   "chords": [
+    "Gm9",
+    "C13",
+    "Fmaj9",
+    "Bbmaj9",
+    "Em7b5",
+    "A7#9",
+    "Dm9",
+    "Dm11",
+    "Gm11",
+    "C7sus4",
+    "Ebmaj9",
+    "A7b9"
+   ]
+  },
+  {
+   "name": "RHODES",
+   "chords": [
+    "Amaj9",
+    "G#m7",
+    "C#m9",
+    "F#m9",
+    "B13",
+    "Emaj9",
+    "Dmaj9",
+    "C#7#9",
+    "F#m11",
+    "Bm9",
+    "E7sus4",
+    "D/E"
+   ]
+  },
+  {
+   "name": "SUNDAY SOUL",
+   "chords": [
+    "Cmaj9",
+    "Bm7b5",
+    "E7b9",
+    "Am9",
+    "Dm9",
+    "G13",
+    "Fmaj9",
+    "Fm9",
+    "Em7",
+    "A7#9",
+    "Dm11",
+    "G7sus4"
+   ]
+  },
+  {
+   "name": "CONSCIOUS",
+   "chords": [
+    "Bbm9",
+    "Eb13",
+    "Abmaj9",
+    "Dbmaj9",
+    "Gm7b5",
+    "C7#9",
+    "Fm9",
+    "Fm11",
+    "Bbm11",
+    "Eb7sus4",
+    "Gbmaj9",
+    "C7b9"
+   ]
+  },
+  {
+   "name": "GOLDEN HOUR",
+   "chords": [
+    "Emaj9",
+    "D#m7",
+    "G#m9",
+    "C#m9",
+    "F#13",
+    "Bmaj9",
+    "Amaj9",
+    "G#7#9",
+    "C#m11",
+    "F#m9",
+    "B7sus4",
+    "A/B"
+   ]
+  },
+  {
+   "name": "SLOW BURN",
+   "chords": [
+    "F#m9",
+    "B13",
+    "Emaj9",
+    "Amaj9",
+    "D#m7b5",
+    "G#7#9",
+    "C#m9",
+    "C#m11",
+    "F#m11",
+    "B7sus4",
+    "Dmaj9",
+    "G#7b9"
+   ]
+  }
+ ]
+}

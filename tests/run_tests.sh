@@ -53,6 +53,10 @@
 # CHORD (tests/chord_test.c): the chord keys (src/chord.c): diatonic triads / sevenths of several scales and roots,
 #                   the fixed shapes and voicings (at most 4 notes), names, MONO plays the root, a release ends
 #                   exactly what its key / MIDI note started, recording, the ARP, MIDI IN, kits ignore CHRD.
+# ShinTech CHORD sets (tests/chordset_test.c, tests/shintech/test_chordsets.py): the factory chord sets
+#                   (tools/shintech/gen_chords.py -> build/gen/chord_sets.h) read back, chordset.c's names (a table of
+#                   shapes; every factory chord's name parsed back to its notes), the symbol grammar, the generator's
+#                   checks, and build/gen/chord_sets.h made from today's data.
 # FUN10 (tests/fun10_test.c, 1.2): LFO 2 (SYNC one cycle per note value at several tempi and on the external clock, OFF bit
 #                   for bit as before; TRIG NOTE / FREE; POL UNI 0..+1, the matrix's AMP), NUDGE (live recording keeps a
 #                   note's time, QUANTIZE ON plays as before, OFF plays the nudges late and early once a pass, never twice
@@ -279,6 +283,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "scales: white-key mapping and note lifecycle" "$OUT/scale_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/chord_test" tests/chord_test.c -lm
     run "chord keys: diatonic and fixed chords, voicings, MONO root, releases, recording, ARP, MIDI IN, kits" "$OUT/chord_test"
+    $CC -Ibuild/gen -Ifirmware/src -o "$OUT/chordset_test" tests/chordset_test.c
+    run "ShinTech CHORD sets: every factory chord read back, the names, genres" "$OUT/chordset_test" "$OUT/chordset_names.txt"
+    run "ShinTech CHORD sets: the symbols, the generator's checks, today's table, each firmware name read back" \
+        env CHORDSET_NAMES="$OUT/chordset_names.txt" python3 -m unittest -q tests/shintech/test_chordsets.py
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/speaker_test" tests/speaker_test.c -lm
     run "SPEAKER EQ: FLAT / LOWCUT / BASS+ responses, BASS+ harmonics of the bass, the sub cut, no offset after, headroom on a full-scale kick (#180)" "$OUT/speaker_test"
     run "DSP render (ANALOG preset 0)" "$OUT/hostsim" 0 0 1 "$OUT/render.wav"

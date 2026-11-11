@@ -1,0 +1,141 @@
+{
+ "genre": "MINIMAL",
+ "sets": [
+  {
+   "name": "ONE NOTE",
+   "chords": [
+    "Csus2",
+    "Csus4",
+    "C5",
+    "Cm",
+    "C",
+    "Cmadd9",
+    "C6",
+    "Cm7",
+    "Fsus2",
+    "Gsus4",
+    "Bbsus2",
+    "Ebsus2"
+   ]
+  },
+  {
+   "name": "SPACIOUS",
+   "chords": [
+    "Am",
+    "Am7",
+    "Amadd9",
+    "Asus2",
+    "Dm7",
+    "Em7",
+    "Fmaj7",
+    "Gsus2",
+    "Am11",
+    "Dsus2",
+    "Esus4",
+    "Cmaj7"
+   ]
+  },
+  {
+   "name": "MICRO",
+   "chords": [
+    "Dm7",
+    "Dm9",
+    "Gm7",
+    "Am7",
+    "Bbmaj7",
+    "Csus2",
+    "Dsus4",
+    "Dm11",
+    "F6",
+    "Gsus2",
+    "Asus4",
+    "D5"
+   ]
+  },
+  {
+   "name": "DRONE",
+   "chords": [
+    "E5",
+    "Esus2",
+    "Esus4",
+    "Em",
+    "Emadd9",
+    "Em7",
+    "Asus2",
+    "Bsus4",
+    "Gsus2",
+    "Dsus2",
+    "Cmaj7#11",
+    "F#sus4"
+   ]
+  },
+  {
+   "name": "LOOP",
+   "chords": [
+    "Fm7",
+    "Fm9",
+    "Bbm7",
+    "Cm7",
+    "Dbmaj7",
+    "Ebsus2",
+    "Fsus4",
+    "Fm11",
+    "Ab6",
+    "Bbsus2",
+    "Csus4",
+    "F5"
+   ]
+  },
+  {
+   "name": "GLASS",
+   "chords": [
+    "Gsus2",
+    "Cmaj7",
+    "Em7",
+    "Dsus2",
+    "Am7",
+    "Gmaj7",
+    "Csus2",
+    "Bm7",
+    "Em9",
+    "Asus2",
+    "Dsus4",
+    "G5"
+   ]
+  },
+  {
+   "name": "FADER",
+   "chords": [
+    "Bm7",
+    "Bm9",
+    "Em7",
+    "F#m7",
+    "Gmaj7",
+    "Asus2",
+    "Bsus4",
+    "Bm11",
+    "D6",
+    "Esus2",
+    "F#sus4",
+    "B5"
+   ]
+  },
+  {
+   "name": "STILL",
+   "chords": [
+    "Cmaj7",
+    "Cmaj9",
+    "Fmaj7",
+    "Am7",
+    "Dm9",
+    "G6",
+    "Csus2",
+    "Em7",
+    "Fmaj7#11",
+    "Am9",
+    "Gsus4",
+    "C5"
+   ]
+  }
+ ]
+}
