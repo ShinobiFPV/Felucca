@@ -29,7 +29,10 @@ static void audio_silence(void)                 /* IRQs off: the DMA would loop 
  * of felucca-bsp's FL_XDATA1 (a firmware's own data), which Felucca uses for nothing else */
 #define ST_VBANK_LO 0x000E7000u
 #define ST_VBANK_HI 0x000E8000u
-#define ST_OK(off, n) (FL_STORE_OK(off, n) || FL_IN(off, n, ST_VBANK_LO, ST_VBANK_HI))
+/* ShinTech: the project extension (storage.c OBJ_PROJEXT), the next two sectors of FL_XDATA1 */
+#define ST_PX_LO 0x000E8000u
+#define ST_PX_HI 0x000EA000u
+#define ST_OK(off, n) (FL_STORE_OK(off, n) || FL_IN(off, n, ST_VBANK_LO, ST_VBANK_HI) || FL_IN(off, n, ST_PX_LO, ST_PX_HI))
 static int st_erase(uint32_t off)
 {
     uint32_t took, f;

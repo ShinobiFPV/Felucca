@@ -1795,7 +1795,7 @@ function makeMockDevice(opt = {}) {
     [[48, 51, 55, 60, 63, 67, 72, 75, 48, 51, 55, 60, 63, 67, 72, 75], [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]],   /* 13 ARP */
   ];
   for (let op = 0; op < 4; op++) TP.push(D("ATK", F.TIME, 0, 127, 0), D("DEC", F.TIME, 0, 127, 0), D("SUS", F.PCT, 0, 127, 127), D("REL", F.TIME, 0, 127, 0), D("LVL", F.PCT, 0, 127, 127));
-  TP.push(E("CHRD", ["OFF", "DIA3", "DIA7", "MAJ", "MIN", "DOM7", "MAJ7", "MIN7", "SUS4", "POW"], 0),   /* the chord keys 81, 82 */
+  TP.push(E("CHRD", ["OFF", "DIA3", "DIA7", "MAJ", "MIN", "DOM7", "MAJ7", "MIN7", "SUS4", "POW", "SET"], 0),   /* the chord keys 81, 82 (ShinTech: SET) */
     E("VOIC", ["CLOSE", "OPEN", "INV1", "INV2", "+OCT"], 0));
   for (const l of ["KICK", "SNARE", "CLAP", "HATCL", "HATOP", "TOM", "RIM", "BELL"]) TP.push(D(l, F.PCT, 0, 127, 127));   /* 83..90: DRUM lane levels */
   TP.push(E("SYNC", ["OFF", "4BAR", "2BAR", "1/1", "1/2", "1/4", "1/8", "8T", "1/16", "16T", "1/32"], 0),   /* 1.2: LFO 2 (91..93) */
@@ -1806,7 +1806,13 @@ function makeMockDevice(opt = {}) {
     E("TYPE", ["LP", "BP", "HP"], 0), E("ESYNC", ["OFF", "ON"], 0),   /* 1.5: ANALOG's filter TYPE (101, #104), ENV SYNC (102, #175) */
     E("AT", ["OFF", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], 0), E("ATDST", MDST, 0),   /* 1.8: AFTERTOUCH (103..105) */
     D("ATAMT", F.BIPCT, -64, 63, 0));
-  const P_COUNT = 114, G_COUNT = 27, NSTEP = 64, P_E0 = 106, G_ENGSEL = 20, P_SLCR = 45;
+  {   /* ShinTech CHORD (106..111): the chord set, KEY, VOICING, INVERSION, RANGE (C2..C6), BASS (firmware params.c) */
+    const RNG = [];
+    for (let v = 0; v <= 48; v++) RNG.push(NOTE_NAMES[v % 12] + (2 + Math.floor(v / 12)));
+    TP.push(D("SET", F.INT, 0, 99, 0), D("KEY", F.NOTE, 0, 11, 0), E("CVOIC", ["CLOSE", "OPEN", "SPRD", "AUTO"], 3),
+      E("INV", ["AUTO", "ROOT", "1ST", "2ND", "3RD"], 0), E("RNG", RNG, 19), E("BASS", ["OFF", "ON"], 0));
+  }
+  const P_COUNT = 120, G_COUNT = 27, NSTEP = 64, P_E0 = 112, G_ENGSEL = 20, P_SLCR = 45;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const enumOrig = (d, v) => d.fmt === F.ENUM && d.names ? aliasOf(d.names, v - d.min) + d.min : v;   /* params.c enum_orig */
   /* four tracks (firmware v3), four synth parts (1.0); engine / preset / p / step below are the selected track's */

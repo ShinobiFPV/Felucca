@@ -107,14 +107,14 @@ int main(void)
     /* the user presets' FM6 patches (1.0.3) in the two sectors of the retired FM6 bank: 0x9F000 (after the projects)
      * and 0xFE000 (after the settings); the two objects share them, told apart by the commit record's type */
     bad += check("FM6 user preset patches (and the retired bank) in the sectors 0x9F000 / 0xFE000",
-                 OBJ_UPFM6 == OBJ_COUNT - 2 && OBJ_FM6BANK == OBJ_UPFM6 - 1 && st_sector(OBJ_UPFM6, 0) == 0x9F000u &&
+                 OBJ_UPFM6 == OBJ_COUNT - 3 && OBJ_FM6BANK == OBJ_UPFM6 - 1 && st_sector(OBJ_UPFM6, 0) == 0x9F000u &&
                      st_sector(OBJ_PROJECT0 + 3, 1) + 4096 == 0x9F000u && st_sector(OBJ_UPFM6, 1) == 0xFE000u &&
                      st_sector(OBJ_FM6BANK, 0) == 0x9F000u && st_sector(OBJ_FM6BANK, 1) == 0xFE000u &&
                      st_sector(OBJ_SETTINGS, 1) + 4096 == 0xFE000u);
     /* the autosave (1.2, project.c): its own pair 0xE5000 / 0xE6000, above the OTA staging, apart from every other
      * object; a save there touches no other object */
     {
-        uint32_t o, c, ok = OBJ_AUTOSAVE == OBJ_COUNT - 1 && st_sector(OBJ_AUTOSAVE, 0) == 0xE5000u &&
+        uint32_t o, c, ok = OBJ_AUTOSAVE == OBJ_COUNT - 2 && st_sector(OBJ_AUTOSAVE, 0) == 0xE5000u &&
                                st_sector(OBJ_AUTOSAVE, 1) == 0xE6000u;
         static uint8_t snap[0x100000];
         for (o = 0; o < OBJ_AUTOSAVE; o++)
@@ -124,6 +124,24 @@ int main(void)
         ok &= st_save(OBJ_AUTOSAVE, a, sizeof a) == 0 && st_load(OBJ_AUTOSAVE, got, sizeof got) == (int)sizeof a &&
               !memcmp(got, a, sizeof a) && !memcmp(snap, nor, 0xE5000u) && !memcmp(snap + 0xE7000u, nor + 0xE7000u, 0x19000u);
         bad += check("the autosave in its own sectors 0xE5000 / 0xE6000, nothing else touched", ok);
+    }
+    /* ShinTech: the project extension (proj_ext.c): its pair 0xE8000 / 0xE9000 in FL_XDATA1, apart from every other object
+     * and the FM6 voice bank (0xE7000); a save there touches nothing else, and a whole payload (3584) leaves bytes
+     * 0xF00..0xF07 of its sector erased (the update loader reads an update record there) */
+    {
+        uint32_t o, c, ok = OBJ_PROJEXT == OBJ_COUNT - 1 && st_sector(OBJ_PROJEXT, 0) == 0xE8000u &&
+                               st_sector(OBJ_PROJEXT, 1) == 0xE9000u;
+        static uint8_t snap[0x100000], px_a[3584], px_got[3584];
+        for (o = 0; o < OBJ_PROJEXT; o++)
+            for (c = 0; c < 2u; c++)
+                ok &= st_sector(o, c) + 4096u <= 0xE8000u || st_sector(o, c) >= 0xEA000u;
+        for (o = 0; o < sizeof px_a; o++) px_a[o] = (uint8_t)(o * 11u + 1u);
+        memcpy(snap, nor, sizeof nor);
+        ok &= st_save(OBJ_PROJEXT, px_a, sizeof px_a) == 0 && st_load(OBJ_PROJEXT, px_got, sizeof px_got) == (int)sizeof px_a &&
+              !memcmp(px_got, px_a, sizeof px_a) && !memcmp(snap, nor, 0xE8000u) && !memcmp(snap + 0xEA000u, nor + 0xEA000u, 0x16000u);
+        for (o = 0xF00u; o < 0xF08u; o++)                  /* (both copies) */
+            ok &= nor[0xE8000u + o] == 0xFFu && nor[0xE9000u + o] == 0xFFu;
+        bad += check("ShinTech: the project extension in its own sectors 0xE8000 / 0xE9000, nothing else touched, 0xF00.. erased", ok);
     }
     {
         static uint8_t bank[3472], back[3728], tab[3728];

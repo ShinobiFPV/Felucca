@@ -95,6 +95,7 @@
  * Built on the Mac too (tests/project_test.c, -DPROJ_HOST): the part above the #ifndef
  * PROJ_HOST needs core.h, params.c (TP) and engines.c. */
 #define PROJ_MAGIC 0x46554E41u                 /* "FUNA" (FUN10): 104 (1.5: 111) parameters, 128 motion records, nudges */
+#define PROJ_MAGIC_B 0x46554E42u              /* ShinTech: "FUNB", FUN10 with an extension (proj_ext.c) */
 #define PROJ_MAGIC_V9 0x46554E39u              /* "FUN9": FUN8, 64 bytes longer (the DRUM lane levels, 99 parameters) */
 #define PROJ_MAGIC_V8 0x46554E38u              /* "FUN8": FUN7 + the tracks' FM6 patches */
 #define PROJ_MAGIC_V7 0x46554E37u              /* "FUN7": serialized (byte params, packed steps), chain, motion */
@@ -507,7 +508,7 @@ static int proj_import(project_t *q, const void *b, int n)
 }
 static int proj_import_any(project_t *q, const void *b, int n)
 {
-    if (n == PROJ_STORE_SIZE && ((const uint32_t *)b)[0] == PROJ_MAGIC)
+    if (n == PROJ_STORE_SIZE && (((const uint32_t *)b)[0] == PROJ_MAGIC || ((const uint32_t *)b)[0] == PROJ_MAGIC_B))
         return proj_unpack(q, b, PROJ_STORE_SIZE);
     if (n == PROJ_STORE_SIZE && ((const uint32_t *)b)[1] >= 8u && ((const uint32_t *)b)[1] < PROJ_STORE_SIZE)
         n = (int)((const uint32_t *)b)[1];      /* a retained slot holding an older, shorter record: its own size
@@ -615,21 +616,36 @@ static void proj_midi_unpack(project_t *q, const uint8_t *b)
         q->g[G_ROUTE] = ROUTE_TRACK;
 }
 
+/* ShinTech: FUNB and the project extension (the new parameters FUN10 has no room for) */
+#include "proj_ext.c"
+
 /* A stable serialized schema: first header retains FUN6's fields; at byte66
- * np, format flags, then four byte-param tracks and nine-byte steps; FUN8: the patches at PROJ_FM6_OFF. */
+ * np, format flags, then four byte-param tracks and nine-byte steps; FUN8: the patches at PROJ_FM6_OFF.
+ * ShinTech: FUN10's 114 parameters (the ones past them in the extension, proj_ext.c); FUNB when the project uses them */
 static int proj_pack(project_store_t *out, const project_t *q)
 {
     uint8_t *b = out->raw; uint32_t pos = 68u, t, i; uint32_t magic = PROJ_MAGIC, size = PROJ_STORE_SIZE, sum;
+    uint32_t fb = px_uses(q);
+    motion_store_t mot = q->motion;
     for (t = 0; t < NTRK; t++)
         for (i = 0; i < FM6_PACKED; i++)
             if (q->fm6[t][i] > 127u) return 0;
     if (!chain_valid(&q->chain) || !motion_valid(&q->motion) || P_COUNT > 127u) return 0;
+    if (fb)
+        magic = PROJ_MAGIC_B;
+    else                                                /* FUN10's motion ids: the engine values at 106.. */
+        for (i = 0; i < mot.count && i < MOTION_MAX; i++)
+            if (MOTION_ID(&mot.event[i]) >= P_E0)
+                mot.event[i].param = (uint8_t)(mot.event[i].param - PX_NEW);
     memset(out, 0, sizeof *out); memcpy(b, &magic, 4); memcpy(b + 4, &size, 4);
-    memcpy(b + 8, q->g, sizeof q->g); b[62] = q->sel; b[63] = q->parts; b[64] = q->phys; b[66] = P_COUNT;
+    memcpy(b + 8, q->g, sizeof q->g); b[62] = q->sel; b[63] = q->parts; b[64] = q->phys; b[66] = PROJ_NP_FUN10;
+    if (fb)
+        b[67] = P_COUNT;                                /* (FUNB: the motion's ids are today's) */
     for (t = 0; t < NTRK; t++) {
-        for (i = 0; i < P_COUNT; i++) {
-            if (q->t[t].p[i] < -64 || q->t[t].p[i] > 127) return 0;
-            b[pos++] = (uint8_t)(q->t[t].p[i] + 64);
+        for (i = 0; i < PROJ_NP_FUN10; i++) {           /* P_LEVEL .. P_ATAMT, then E0..E7 */
+            uint32_t id = i < PX_FIRST ? i : i + PX_NEW;
+            if (q->t[t].p[id] < -64 || q->t[t].p[id] > 127) return 0;
+            b[pos++] = (uint8_t)(q->t[t].p[id] + 64);
         }
         b[pos++] = q->t[t].engine; b[pos++] = q->t[t].preset;
         for (i = 0; i < NSTEP; i++) {
@@ -649,9 +665,14 @@ static int proj_pack(project_store_t *out, const project_t *q)
     }
     if (pos + sizeof q->chain + sizeof q->motion > PROJ_MIDI_OFF) return 0;
     memcpy(b + pos, &q->chain, sizeof q->chain); pos += sizeof q->chain;
-    memcpy(b + pos, &q->motion, sizeof q->motion);
+    memcpy(b + pos, &mot, sizeof mot);
     proj_midi_pack(b, q);
     memcpy(b + PROJ_FM6_OFF, q->fm6, sizeof q->fm6);
+    if (fb) {                                           /* FUNB: its extension record's digest */
+        uint8_t rec[PX_REC_MAX];
+        uint32_t n = px_encode(q, rec);
+        px_digest_put(b, px_digest(rec, n));
+    }
     {   /* the name (0-padded; stops at the first 0) */
         char n[PROJ_NAME_LEN + 1u];
         memcpy(b + PROJ_NAME_OFF, n, proj_name_get(n, (const uint8_t *)q->name));
@@ -703,10 +724,13 @@ static int proj_unpack(project_t *q, const uint8_t *b, uint32_t st)
     uint32_t pos = 68u, t, i, magic, size, sum, np = b[66], v7 = st == PROJ_STORE_V7, v10 = st == PROJ_STORE_SIZE;
     uint32_t name_off = st - 4u - PROJ_NAME_LEN, end = v7 ? name_off : name_off - NTRK * FM6_PACKED;
     uint32_t mot = v10 ? sizeof q->motion : PROJ_MOTION_V9, chn = v10 ? sizeof q->chain : sizeof(chain_v9_t);
+    uint32_t fb, mid;                                   /* ShinTech FUNB (proj_ext.c); the motion ids' P_COUNT */
     memcpy(&magic, b, 4); memcpy(&size, b + 4, 4); memcpy(&sum, b + st - 4u, 4);
-    if (magic != (v7 ? PROJ_MAGIC_V7 : st == PROJ_STORE_V8 ? PROJ_MAGIC_V8 : st == PROJ_STORE_V9 ? PROJ_MAGIC_V9 : PROJ_MAGIC) ||
+    fb = v10 && magic == PROJ_MAGIC_B;
+    mid = fb ? b[67] : np;
+    if ((!fb && magic != (v7 ? PROJ_MAGIC_V7 : st == PROJ_STORE_V8 ? PROJ_MAGIC_V8 : st == PROJ_STORE_V9 ? PROJ_MAGIC_V9 : PROJ_MAGIC)) ||
         size != st || sum != proj_hash(b, st - 4u) ||
-        np < 8u || np > P_COUNT || 68u + NTRK * (np + 2u + NSTEP * 9u) + chn + mot > end)
+        np < 8u || np > P_COUNT || mid < np || mid > P_COUNT || 68u + NTRK * (np + 2u + NSTEP * 9u) + chn + mot > end)
         return 0;
     memset(q, 0, sizeof *q); q->magic = PROJ_MAGIC; q->size = sizeof *q;
     memcpy(q->g, b + 8, sizeof q->g); q->sel = b[62]; q->parts = b[63]; q->phys = b[64];
@@ -749,7 +773,7 @@ static int proj_unpack(project_t *q, const uint8_t *b, uint32_t st)
         memcpy(&q->motion, b + pos, sizeof q->motion);
     else if (!proj_motion_v9(&q->motion, b + pos))
         return 0;
-    if (!proj_motion_ids(&q->motion, np) || !chain_valid(&q->chain) || !motion_valid(&q->motion)) return 0;
+    if (!proj_motion_ids(&q->motion, mid) || !chain_valid(&q->chain) || !motion_valid(&q->motion)) return 0;
     if (v10)
         proj_midi_unpack(q, b);                         /* (1.5.5: 0 in every FUN10 before, FUN9..FUN7 have none) */
     for (t = 0; t < NTRK; t++) {
@@ -762,6 +786,12 @@ static int proj_unpack(project_t *q, const uint8_t *b, uint32_t st)
     {
         char n[PROJ_NAME_LEN + 1u];
         memcpy(q->name, n, proj_name_get(n, b + name_off));
+    }
+    if (fb) {                                           /* its extension record; none: the new parameters' defaults */
+        uint32_t n;
+        const uint8_t *x = px_find(px_digest_of(b), &n);
+        if (x)
+            px_apply(q, x, n);
     }
     q->sum = proj_sum(q); proj_drums_to_part(q); proj_phys(q);
     return 1;
@@ -837,7 +867,43 @@ static void proj_bound(project_t *q)
     q->sum = proj_sum(q);
 }
 
+/* ShinTech (proj_ext.c): the extension record of q, before q itself is written, when q is a FUNB. Every record a
+ * stored project (the four RAM slots, which mirror flash from power-on: persist_boot) or the autosave (px_as_dig)
+ * names is kept, the slot about to be written over too, so a power cut before its own write leaves it its record.
+ * Written only when the record is new. 0 done (or nothing to do), nonzero failed (nothing else written) */
+static uint32_t px_as_dig;                   /* the digest the stored autosave names, 0 none */
+static int px_commit(const project_t *q)
+{
+    uint8_t rec[PX_REC_MAX];
+    uint32_t keep[5], nk = 0, i, n, d, m;
+    if (!px_uses(q))
+        return 0;
+    n = px_encode(q, rec);
+    d = px_digest(rec, n);
+    if (px_find(d, &m))
+        return 0;                                       /* (already there: nothing to write) */
+    for (i = 0; i < 4u; i++)
+        if ((keep[nk] = px_named(&proj_slot[i], sizeof proj_slot[i])) != 0u)
+            nk++;
+    if (px_as_dig)
+        keep[nk++] = px_as_dig;
+    if (!px_put(d, rec, n, keep, nk))
+        return 1;
 #if FELUCCA_FLASH
+    if (flash_ok && st_save(OBJ_PROJEXT, &px, 8u + px.used))
+        return 2;
+#endif
+    return 0;
+}
+
+#if FELUCCA_FLASH
+static void px_boot(void)                    /* power-on, before the slots are read (persist_boot) */
+{
+    int n = st_load(OBJ_PROJEXT, &px, sizeof px);
+    if (n < 8 || (uint32_t)n != 8u + px.used || !px_valid(&px))
+        px_reset();
+}
+
 /* slot from flash into RAM (format 7, or format 6 / 5 / 4 / 3 / 2 / 1 converted) */
 static void proj_fetch(uint32_t slot)
 {
@@ -899,6 +965,7 @@ static int project_save_as(uint32_t slot, const char *name)
     }
     proj_wire_gen++;
     if (!proj_pack(&proj_wire, p)) { ui_message("SAVE FORMAT ERROR"); return 2; }
+    if (px_commit(p)) { ui_message("SAVE ERROR"); return 2; }   /* (ShinTech: its extension first, proj_ext.c) */
 
 #if FELUCCA_FLASH
     if (flash_ok) {
@@ -1191,8 +1258,11 @@ static void persist_boot(void)                    /* before settings_init / pane
 {
 #if FELUCCA_FLASH
     persist_t p;
-    uint32_t f = irq_save();
-    uint32_t flash_id = FL_FAR(fl_jedec_ram)();
+    uint32_t f;
+    uint32_t flash_id;
+    px_reset();                                    /* (ShinTech: the project extension, empty until read below) */
+    f = irq_save();
+    flash_id = FL_FAR(fl_jedec_ram)();
     flash_ok = flash_id == 0x856014u || flash_id == 0xB36014u; /* known 1 MiB parts, else RAM-only */
     irq_restore(f);
     if (!flash_ok)
@@ -1212,6 +1282,7 @@ static void persist_boot(void)                    /* before settings_init / pane
         if (settings_import(&p, n))
             persist_saved = p;
     }
+    px_boot();                                     /* (ShinTech: before the projects, which name its records) */
     {   /* projects: fill empty RAM slots from flash, so the slot list is right after power-on */
         uint32_t i;
         for (i = 0; i < 4u; i++)
@@ -1409,10 +1480,12 @@ static void autosave_poll(void)
     as.wrote = 1;
     project_capture(&proj_scratch);
     proj_wire_gen++;
-    as.err = !proj_pack(&proj_wire, &proj_scratch) || st_save(OBJ_AUTOSAVE, &proj_wire, sizeof proj_wire) != 0;
+    as.err = !proj_pack(&proj_wire, &proj_scratch) || px_commit(&proj_scratch) ||   /* (ShinTech: its extension first) */
+             st_save(OBJ_AUTOSAVE, &proj_wire, sizeof proj_wire) != 0;
     if (!as.err) {
         as.saved = sig;
         as.writes++;
+        px_as_dig = px_named(&proj_wire, sizeof proj_wire);
     }
 #endif
 }
@@ -1424,6 +1497,12 @@ static int autosave_boot(int allowed)
 {
     int rc = 0;
 #if FELUCCA_FLASH
+    if (flash_ok) {                                 /* (ShinTech: the extension record it names stays, restored or not) */
+        int n;
+        proj_wire_gen++;
+        n = st_load(OBJ_AUTOSAVE, &proj_wire, sizeof proj_wire);
+        px_as_dig = n > 0 ? px_named(&proj_wire, (uint32_t)n) : 0u;
+    }
     if (flash_ok && allowed && !(ui_prefs & PREF_RESTORE_OFF)) {
         int n;
         proj_wire_gen++;

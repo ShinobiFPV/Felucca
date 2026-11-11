@@ -79,6 +79,9 @@ enum {                          /* per-track parameters */
     P_FTYPE,                                   /* 1.5 (#104): ANALOG's filter TYPE, LP (as before) / BP / HP (eng_analog.c) */
     P_ESYNC,                                   /* 1.5 (#175): ENV SYNC: ATK DEC REL as note values of the tempo (voice.c) */
     P_ATSNS, P_ATDST, P_ATAMT,                 /* 1.8: AFTERTOUCH: the keys' pressure (keytouch.c) and its routing (mod.c) */
+    P_CSET, P_CKEY, P_CVOIC, P_CINV, P_CRNG, P_CBASS,   /* ShinTech CHORD (chordset.c, P_CHRD SET): the chord set, KEY,
+                                                         * VOICING, INVERSION, RANGE, BASS. Past FUN10's parameters: a
+                                                         * project keeps them in its extension (proj_ext.c, FUNB) */
     P_E0, P_E1, P_E2, P_E3, P_E4, P_E5, P_E6, P_E7,
     P_COUNT
 };
@@ -320,9 +323,11 @@ typedef struct track {
     uint8_t lfo_wrap;            /* the LFO's phase wrapped this block: its S&H is drawn after the parts (voice.c) */
     uint32_t esync_k[3];         /* ATK's step, DEC's and REL's coefficient (Q16) this block (voice.c esync_coef) */
     uint8_t spread_on;           /* SPREAD this block (fx.c mix_part, voice.c track_render) */
-    uint8_t rsv_sz[15];          /* (sizeof(track_t) a multiple of 16: below; 1.8's AFTERTOUCH grew it by 14) */
+    uint8_t rsv_sz[3];           /* (sizeof(track_t) a multiple of 16: below; 1.8's AFTERTOUCH grew it by 14; ShinTech's
+                                  * CHORD parameters took 12 of the 15) */
 #else
-    uint8_t rsv_sz[12];          /* (sizeof(track_t) a multiple of 16: below; 1.8's AFTERTOUCH took 2 of it) */
+    uint8_t rsv_sz[16];          /* (sizeof(track_t) a multiple of 16: below; 1.8's AFTERTOUCH took 2 of it; ShinTech's
+                                  * CHORD parameters 12 more: 16 again) */
 #endif
     int16_t armp, aholdp;        /* P_AMODE / P_AHOLD as last seen by the ISR */
     /* engine switch (voice.c engine_block): the old engine's voices fade out, then it switches */

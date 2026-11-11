@@ -164,7 +164,13 @@ it is in **XDATA1 / XDATA0, which no data uses today**; nothing existing moves.
 | Spare | 4 |
 | **Total** | **24 of 24** |
 
-**Formats.** The project becomes **FUN11** ("FUNB"). Its main record keeps FUN10's layout and size (one 3,840 B
+**As built (Phase 1).** The project extension is one object, OBJ_PROJEXT at 0xE8000 / 0xE9000, holding records found
+by the digest of their content (`firmware/src/proj_ext.c` has the details). A project without the fork's features is
+still FUN10 ("FUNA"), exactly as upstream writes it. One with them is FUNB, which names its record's digest. A save writes
+the extension first, keeping every record a stored project or the autosave names, then the project. A missing
+record means CHORD defaults, never a refused project.
+
+**Formats (plan).** The project becomes **FUN11** ("FUNB"). Its main record keeps FUN10's layout and size (one 3,840 B
 object: there is no room to grow it), holding the parameters FUN10 has; the new CHORD and POLY6 track parameters are
 written to the project extension object instead (by id, so later additions need no layout change). FUN10 and every
 older format still load (new parameters at defaults: CHORD off, which plays as before). Upstream Felucca refuses FUN11 (a slot shows EMPTY there) and never

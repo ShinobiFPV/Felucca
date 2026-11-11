@@ -74,6 +74,17 @@ track's aftertouch, the keys' or MIDI's, routed as a modulation slot of its own.
 changed; an editor that takes P_COUNT and P_E0 from `INFO` keeps working. Projects stay FUN10 (114 at byte 66; 4 bytes
 to spare before MIDI IN TRACK's three).
 
+**ShinTech CHORD fork (120 parameters, FUN10 or FUNB):** six track parameters went in before the engine parameters,
+which moved from 106..113 to 112..119: P_COUNT 120, P_E0 112. CHORD mode's setup: `SET` (106, the chord set 0..99),
+`KEY` (107, a note 0..11), `CVOIC` (108, CLOSE OPEN SPRD AUTO), `INV` (109, AUTO ROOT 1ST 2ND 3RD), `RNG` (110, the
+range's lowest note C2..C6, 0..48) and `BASS` (111, OFF ON); `CHRD` (81) gained a last value, `SET` (10). No command
+changed; an editor that takes P_COUNT and P_E0 from `INFO` keeps working. A project object is still 3840 bytes: FUN10
+("FUNA", 114 at byte 66, as 1.8 writes it) when it uses none of these, otherwise FUNB (magic `0x46554E42`, the same
+layout, byte 67 the P_COUNT of its motion ids, its extension record's digest in bit 7 of track 1's FM6 patch bytes
+0..31). The six values are not in the object: they are in the project extension (firmware/src/proj_ext.c), which a
+backup does not carry yet. A FUNB restored without it loads with those six at their defaults. Upstream firmware shows a
+FUNB slot as empty.
+
 ## Framing
 
 A request is `F0 7D 46 4C <cmd> <args...> F7`:

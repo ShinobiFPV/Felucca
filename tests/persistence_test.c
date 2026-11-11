@@ -621,7 +621,7 @@ int main(void)
     {   /* FUN7 itself refuses a step outside its fields: a damaged slot is empty, the tracks stay */
         step_t keep = trk[0].step[0];
         old = proj_slot[0];
-        proj_slot[0].raw[68 + P_COUNT + 2 + 4] = 7;               /* track 1 step 1: n = 7 */
+        proj_slot[0].raw[68 + PROJ_NP_FUN10 + 2 + 4] = 7;               /* track 1 step 1: n = 7 */
         bad += check("damaged FUN7 slot (hash ok, n > 4) is refused", (memcpy(proj_slot[0].raw + PROJ_STORE_SIZE - 4,
                       &(uint32_t){proj_hash(proj_slot[0].raw, PROJ_STORE_SIZE - 4)}, 4), !project_used(0)));
         st_save(OBJ_PROJECT0, &proj_slot[0], sizeof proj_slot[0]);

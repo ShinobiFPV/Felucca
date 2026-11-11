@@ -313,7 +313,7 @@ static int old_accepts(const project_store_t *p)   /* 1.5 / 1.5.1's proj_unpack 
     uint32_t t, i, base;
     for (t = 0; t < NTRK; t++)
         for (i = 0; i < NSTEP; i++) {
-            base = 68u + t * (P_COUNT + 2u + NSTEP * 9u) + P_COUNT + 2u + i * 9u;
+            base = 68u + t * (PROJ_NP_FUN10 + 2u + NSTEP * 9u) + PROJ_NP_FUN10 + 2u + i * 9u;
             if ((p->raw[base + 8u] & 127u) > 101u)
                 return 0;
         }
@@ -340,7 +340,7 @@ static int cond_store(void)
     bad += check("FUN10: the conditions round trip (the chance byte 102..112), the size unchanged", ok && sizeof pk == 3840u);
     bad += check("  1.5 / 1.5.1's rule refuses a project holding one (the slot reads empty there), one without loads",
                  old0 && !old_accepts(&pk));
-    pk.raw[68u + P_COUNT + 2u + 8u] = 113;
+    pk.raw[68u + PROJ_NP_FUN10 + 2u + 8u] = 113;
     {
         uint32_t s = proj_hash(pk.raw, PROJ_STORE_SIZE - 4u);
         memcpy(pk.raw + PROJ_STORE_SIZE - 4u, &s, 4);

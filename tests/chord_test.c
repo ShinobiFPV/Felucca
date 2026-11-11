@@ -154,7 +154,7 @@ static int shapes_voicings(void)
         char b[12];
         ok = 1;
         for (s = 0; s <= (uint32_t)TP[P_SCALE].max; s++)
-            for (c = 1; c <= (uint32_t)TP[P_CHRD].max; c++)
+            for (c = 1; c <= CH_POW; c++)               /* (ShinTech SET, past POW: the chord sets, tests/chordset_test.c) */
                 for (v = 0; v <= (uint32_t)TP[P_VOIC].max; v++)
                     for (note = 0; note < 128u; note++) {
                         t->p[P_SCALE] = (int16_t)s; t->p[P_CHRD] = (int16_t)c; t->p[P_VOIC] = (int16_t)v;

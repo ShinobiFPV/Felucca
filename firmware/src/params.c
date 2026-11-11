@@ -39,7 +39,21 @@ static uint32_t esync_idx(int32_t v) { return (uint32_t)(v & 127) * ESYNC_N >> 7
  * they play (seq.c seq_step; the steps keep what was written). Append-only: older projects hold 0..2 */
 static const char *const N_QUANT[] = {"OFF", "SNAP", "WHITE", "SEQ", "SEQ+T"};
 /* chord keys (chord.c): OFF, the diatonic triad / seventh of the track's ROOT and SCALE on the key, fixed shapes */
-static const char *const N_CHRD[] = {"OFF", "DIA3", "DIA7", "MAJ", "MIN", "DOM7", "MAJ7", "MIN7", "SUS4", "POW"};
+static const char *const N_CHRD[] = {"OFF", "DIA3", "DIA7", "MAJ", "MIN", "DOM7", "MAJ7", "MIN7", "SUS4", "POW",
+                                     "SET"};   /* ShinTech: SET, the keys play the chord set (chordset.c; P_CSET ..) */
+#define CHRD_SET 10                   /* P_CHRD SET (chord.c CH_SET): a project with it is a FUNB (proj_ext.c) */
+_Static_assert(sizeof N_CHRD / sizeof N_CHRD[0] == CHRD_SET + 1u, "N_CHRD: SET last");
+/* ShinTech CHORD (chordset.c cs_voice): VOICING (CSV_CLOSE .. CSV_AUTO), INVERSION (AUTO, then 0..3: the tone lowest),
+ * RANGE (the window's lowest note: C2 + v, v 0..48 = C2 .. C6) */
+#include "chord_sets.h"
+static const char *const N_CVOIC[] = {"CLOSE", "OPEN", "SPRD", "AUTO"};
+static const char *const N_CINV[] = {"AUTO", "ROOT", "1ST", "2ND", "3RD"};
+#define CRNG_LO 36                    /* RANGE 0: C2 */
+static const char *const N_CRNG[] = {
+    "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2",
+    "C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3",
+    "C4", "C#4", "D4", "D#4", "E4", "F4", "F#4", "G4", "G#4", "A4", "A#4", "B4",
+    "C5", "C#5", "D5", "D#5", "E5", "F5", "F#5", "G5", "G#5", "A5", "A#5", "B5", "C6"};
 static const char *const N_VOIC[] = {"CLOSE", "OPEN", "INV1", "INV2", "+OCT"};   /* VC_CLOSE .. VC_BASS */
 static const char *const N_VOICE[] = {"POLY", "MONO", "LEG", "UNI"};   /* V_POLY .. V_UNISON */
 static const char *const N_GLMODE[] = {"RATE", "TIME"};
@@ -177,6 +191,12 @@ static const param_desc_t TP[P_COUNT] = {
     [P_ATSNS] = PE("AT", N_ATSNS, 0),
     [P_ATDST] = PE("ATDST", N_MDST, 0),
     [P_ATAMT] = PD("ATAMT", F_BIPCT, -64, 63, 0),
+    [P_CSET] = PD("SET", F_INT, 0, (int16_t)(CS_NSETS - 1u), 0),   /* ShinTech CHORD */
+    [P_CKEY] = PD("KEY", F_NOTE, 0, 11, 0),
+    [P_CVOIC] = PE("CVOIC", N_CVOIC, 3),                           /* (not VOIC: the chord keys' P_VOIC has it) */
+    [P_CINV] = PE("INV", N_CINV, 0),
+    [P_CRNG] = PE("RNG", N_CRNG, 19),                               /* G3: the window G3 .. F#4 */
+    [P_CBASS] = PE("BASS", N_ONOFF, 0),
 };
 
 /* the INSERT's A B C as its TYPE means them (TP's ranges and defaults): the drives DRIVE TONE LEVEL, CRUSH BITS RATE

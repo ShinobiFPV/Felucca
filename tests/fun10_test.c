@@ -490,26 +490,26 @@ static int formats(void)
     motion_set_lock(&trk[2], 9, P_E0 + 3, 7);
     project_capture(&a);
     ok = motion.count == MOTION_MAX && proj_pack(&st, &a) && ((uint32_t *)st.raw)[0] == 0x46554E41u &&
-         ((uint32_t *)st.raw)[1] == 3840u && st.raw[66] == P_COUNT && proj_import(&b, &st, sizeof st) && !memcmp(&a, &b, sizeof a);
+         ((uint32_t *)st.raw)[1] == 3840u && st.raw[66] == PROJ_NP_FUN10 && proj_import(&b, &st, sizeof st) && !memcmp(&a, &b, sizeof a);
     ok &= step_nudge(&b.t[0].step[0]) == -8 && step_nudge(&b.t[0].step[1]) == 7 && step_nudge(&b.t[0].step[2]) == -1 &&
           step_ratchet(&b.t[0].step[3]) == 4u && step_nudge(&b.t[0].step[3]) == 1 && step_chance(&b.t[0].step[3]) == 33u;
     ok &= b.t[0].p[P_LSYNC] == 8 && b.t[0].p[P_LTRIG] == 1 && b.t[0].p[P_LPOL] == 1 && b.t[0].p[P_SQNT] == 0;
-    ok &= !(st.raw[68u + P_COUNT + 2u] & 0x80u) && (st.raw[68u + P_COUNT + 2u + 3u] & 0x80u) &&   /* -8: bit 3 only */
-          (st.raw[68u + P_COUNT + 2u + 9u] & 0x80u) && !(st.raw[68u + P_COUNT + 2u + 12u] & 0x80u);   /* +7: bits 0..2 */
+    ok &= !(st.raw[68u + PROJ_NP_FUN10 + 2u] & 0x80u) && (st.raw[68u + PROJ_NP_FUN10 + 2u + 3u] & 0x80u) &&   /* -8: bit 3 only */
+          (st.raw[68u + PROJ_NP_FUN10 + 2u + 9u] & 0x80u) && !(st.raw[68u + PROJ_NP_FUN10 + 2u + 12u] & 0x80u);   /* +7: bits 0..2 */
     bad += check("FUN10 round trip: 3840 bytes, nudges (bit 7 of the note bytes), 128 records, LFO 2, QUANTIZE", ok);
     /* a FUN10 of a 1.2 build before SPREAD (#148): 103 parameters (no P_SPRD, nor 1.5's); one of 1.2 .. 1.4: 104 (no
      * INSERT, filter TYPE, ENV SYNC: 1.5). Their engine values and their motion (the lock on E3) as many ids lower. They
      * load by count: SPREAD 0, the INSERT OFF (its defaults), TYPE LP, ENV SYNC OFF, the rest as written */
     for (uint32_t from = P_SPRD; from <= P_ITYPE; from += P_ITYPE - P_SPRD) {
         static project_store_t so;
-        uint32_t pi = 68u, po = 68u, tr, m0, drop = P_E0 - from;
+        uint32_t pi = 68u, po = 68u, tr, m0, drop = PX_FIRST - from;   /* (ShinTech: the stored FUN10 numbers E0 from 106) */
         memset(&so, 0, sizeof so);
         ok = proj_pack(&st, &a) && !a.t[0].p[P_SPRD] && !a.t[0].p[P_ITYPE] && !a.t[0].p[P_FTYPE] && !a.t[0].p[P_ESYNC];
         memcpy(so.raw, st.raw, 68u);
-        so.raw[66] = (uint8_t)(P_COUNT - drop);
+        so.raw[66] = (uint8_t)(PROJ_NP_FUN10 - drop);
         for (tr = 0; tr < NTRK; tr++) {
-            for (i = 0; i < P_COUNT; i++, pi++)
-                if (i < from || i >= P_E0)
+            for (i = 0; i < PROJ_NP_FUN10; i++, pi++)
+                if (i < from || i >= PX_FIRST)
                     so.raw[po++] = st.raw[pi];
             memcpy(so.raw + po, st.raw + pi, 2u + NSTEP * 9u);
             pi += 2u + NSTEP * 9u;
@@ -519,7 +519,7 @@ static int formats(void)
         m0 = po + sizeof(chain_config_t);
         for (i = 0; i < so.raw[m0]; i++) {
             uint8_t *id = &so.raw[m0 + 4u + 3u * i + 1u];
-            if ((*id & 0x7Fu) >= P_E0)
+            if ((*id & 0x7Fu) >= PX_FIRST)
                 *id = (uint8_t)(*id - drop);            /* (the lock bit kept) */
         }
         memcpy(so.raw + PROJ_FM6_OFF, st.raw + PROJ_FM6_OFF, PROJ_STORE_SIZE - 4u - PROJ_FM6_OFF);
@@ -536,7 +536,7 @@ static int formats(void)
     }
     {   /* the song's sections (1.2): a slot per track, "-" silent, 5 bytes a row, 84 in all, right after the steps */
         project_t c = a, d;
-        uint32_t at = 68u + NTRK * (P_COUNT + 2u + NSTEP * 9u);
+        uint32_t at = 68u + NTRK * (PROJ_NP_FUN10 + 2u + NSTEP * 9u);
         c.chain.count = CHAIN_ROWS;
         for (i = 0; i < CHAIN_ROWS; i++)
             c.chain.row[i] = (chain_row_t){{(uint8_t)(i % 5u), (uint8_t)((i + 1u) % 5u), (uint8_t)((i + 2u) % 5u),
@@ -674,7 +674,7 @@ static int formats(void)
 static int midi_track_fmt(void)
 {
     int bad = 0, ok;
-    uint32_t i, end = 68u + NTRK * (P_COUNT + 2u + NSTEP * 9u) + sizeof(chain_config_t) + sizeof(motion_store_t);
+    uint32_t i, end = 68u + NTRK * (PROJ_NP_FUN10 + 2u + NSTEP * 9u) + sizeof(chain_config_t) + sizeof(motion_store_t);
     project_t a, b;
     static project_store_t st, old;
     int16_t r;

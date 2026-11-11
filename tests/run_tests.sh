@@ -53,6 +53,10 @@
 # CHORD (tests/chord_test.c): the chord keys (src/chord.c): diatonic triads / sevenths of several scales and roots,
 #                   the fixed shapes and voicings (at most 4 notes), names, MONO plays the root, a release ends
 #                   exactly what its key / MIDI note started, recording, the ARP, MIDI IN, kits ignore CHRD.
+# ShinTech FUNB (tests/funb_test.c): a project without the fork's features is FUN10 as upstream writes it (114
+#                   parameters, FUN10's motion ids); with them FUNB (byte 67 its P_COUNT, the extension record's digest
+#                   in the FM6 bytes' bit 7), loaded exactly with its record, at the defaults without; byte 67's ids;
+#                   the extension store (shared records, kept / dropped, damaged); 2000 random projects.
 # ShinTech CHORD sets (tests/chordset_test.c, tests/shintech/test_chordsets.py): the factory chord sets
 #                   (tools/shintech/gen_chords.py -> build/gen/chord_sets.h) read back, chordset.c's names (a table of
 #                   shapes; every factory chord's name parsed back to its notes), the symbol grammar, the generator's
@@ -294,6 +298,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "TRACKS: 4-track pattern, live recording (lengths, swing), voice budget, engine switch, cost" env TRACKS=build/tracks_demo "$OUT/hostsim" 0 0 1 "$OUT/tracks.wav"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/project_test" tests/project_test.c -lm
     run "project formats (FUN1..FUN5 -> FUN6, the grid and song chain; DIGITAL tracks -> FM6, SAMPLE PERC -> DRUM)" "$OUT/project_test"
+    $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/funb_test" tests/funb_test.c -lm
+    run "ShinTech FUNB: FUN10 unless a CHORD feature is used, the extension record, its digest, motion ids, the store" "$OUT/funb_test"
+    $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/funb_save_test" tests/funb_save_test.c -lm
+    run "ShinTech FUNB on flash: save, power off, cuts between the writes, the extension lost or damaged, rename, autosave" "$OUT/funb_save_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/motion_test" tests/motion_test.c -lm
     run "motion, whole-step chance, FUN7 migration, song restore, ARP repeat and the 1.2 ARP modes" "$OUT/motion_test"
     $CC -O1 -w -Ibuild/gen -Ifirmware/src -o "$OUT/ratchet_test" tests/ratchet_test.c -lm
