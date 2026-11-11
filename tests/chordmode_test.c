@@ -169,6 +169,16 @@ int main(void)
     ck("F3 .. B3 held at once: silent", held_notes(g) == 0u && mo_w == before);
     for (k = 53; k <= 59; k++)
         key_up(K(k));
+    ck(".. F#3 HOLD on, A3 then B3 VARIATION back to 1", t->p[P_CHOLD] == 1 && t->p[P_CVAR] == 0);
+    key_down(K(54));                                             /* F#3: HOLD off */
+    key_up(K(54));
+    ck("F#3 again: HOLD off", t->p[P_CHOLD] == 0);
+    key_down(K(57));                                             /* A3: VARIATION - from 1: 12 */
+    key_up(K(57));
+    ck("A3 on VARIATION 1: 12 (round)", t->p[P_CVAR] == (int16_t)(CST_NVAR - 1u));
+    key_down(K(59));                                             /* B3: VARIATION + */
+    key_up(K(59));
+    ck("B3: VARIATION + (back to 1)", t->p[P_CVAR] == 0);
     t->p[P_CSET] = (int16_t)set_of("FIRST LIGHT");
     t->p[P_CBASS] = 0;
 
@@ -235,6 +245,8 @@ int main(void)
         ck("again: CHORD SET", str_eq(cur_page()->title, "CHORD SET"));
         press(B_SCL); frames(400);
         ck("again: VOICING", str_eq(cur_page()->title, "VOICING"));
+        press(B_SCL); frames(400);
+        ck("again: STYLE", str_eq(cur_page()->title, "STYLE"));
         press(B_SCL); frames(400);
         ck("again: SCL (round)", str_eq(cur_page()->title, "SCL"));
         go_title("CHORD SET");

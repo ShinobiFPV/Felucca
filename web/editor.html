@@ -1811,8 +1811,11 @@ function makeMockDevice(opt = {}) {
     for (let v = 0; v <= 48; v++) RNG.push(NOTE_NAMES[v % 12] + (2 + Math.floor(v / 12)));
     TP.push(D("SET", F.INT, 0, 99, 0), D("KEY", F.NOTE, 0, 11, 0), E("CVOIC", ["CLOSE", "OPEN", "SPRD", "AUTO"], 3),
       E("INV", ["AUTO", "ROOT", "1ST", "2ND", "3RD"], 0), E("RNG", RNG, 19), E("BASS", ["OFF", "ON"], 0));
+    /* .. its styles (112..115): STYLE, VARIATION (1..12), HOLD, STRUM (ms, 0 AUTO; firmware style.c) */
+    TP.push(E("STYLE", ["OFF", "ARP1", "ARP2", "BEAT1", "BEAT2", "BEAT3", "STRM1", "STRM2", "STRM3", "STRM4"], 0),
+      D("VAR", F.INT, 0, 11, 0), E("CHOLD", ["OFF", "ON"], 0), D("STRUM", F.INT, 0, 60, 0));
   }
-  const P_COUNT = 120, G_COUNT = 27, NSTEP = 64, P_E0 = 112, G_ENGSEL = 20, P_SLCR = 45;
+  const P_COUNT = 124, G_COUNT = 27, NSTEP = 64, P_E0 = 116, G_ENGSEL = 20, P_SLCR = 45;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const enumOrig = (d, v) => d.fmt === F.ENUM && d.names ? aliasOf(d.names, v - d.min) + d.min : v;   /* params.c enum_orig */
   /* four tracks (firmware v3), four synth parts (1.0); engine / preset / p / step below are the selected track's */

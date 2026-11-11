@@ -699,6 +699,8 @@ static void input_off(track_t *t, uint32_t note)
     trk_note_off(t, note);                          /* other mode (ARP switched while held) */
 }
 
+#include "style.c"                              /* ShinTech CHORD styles: what a chord key plays with STYLE on */
+
 /* the effect of key k in the FX layer (PF_N none): the white keys F3 .. G5 the map's (perf_map: the settings,
  * ui_layer.c; by default 1.1.5's ten, FLANGER, PHASER, REV / ECHO THROW), black keys 1..4 the track mutes */
 static uint32_t perf_key(uint32_t k)
@@ -757,8 +759,8 @@ static __attribute__((noinline)) void perf_key_remap(void)
 
 /* ShinTech CHORD, CHRD SET (chord.c chord_set_on): the keys of the selected track (docs/shintech/CHORD-PLAN.md):
  *   C4 .. B4 (keys 7..18)   chord 1..12 of the set: kb_note 60..71, which chord.c reads as the chord's number
- *   F3 .. B3 (keys 0..6)    on a press, silent: F SET -, G SET +, A VARIATION -, B VARIATION + (styles: none yet),
- *                           F# HOLD (styles: none yet), G# VOICING (CLOSE OPEN SPRD AUTO, round), A# BASS on / off
+ *   F3 .. B3 (keys 0..6)    on a press, silent: F SET -, G SET +, A VARIATION -, B VARIATION + (round the twelve),
+ *                           F# HOLD (CHOLD, style.c), G# VOICING (CLOSE OPEN SPRD AUTO, round), A# BASS on / off
  *   C5 .. G5 (keys 19..26)  the white keys a single note (the key's own, as without CHORD: kb_map); black C# KEY -,
  *                           D# KEY + (round the twelve), F# none
  * A shortcut sets the parameter as a knob or a CC does (midi_control.c midi_cc_set: recorded as automation while
@@ -794,23 +796,42 @@ static __attribute__((noinline)) uint32_t cset_key(track_t *t, uint32_t k)
     case 5:                                             /* A#3 BASS */
         cset_param(t, P_CBASS, !t->p[P_CBASS]);
         break;
-    default:                                            /* F#3 HOLD, A3 / B3 VARIATION: the styles (Phase 2) */
+    case 1:                                             /* F#3 HOLD (style.c) */
+        cset_param(t, P_CHOLD, !t->p[P_CHOLD]);
+        break;
+    case 4:                                             /* A3 VARIATION -, B3 VARIATION + (round the twelve) */
+    case 6:
+        cset_param(t, P_CVAR, (t->p[P_CVAR] + (k == 6u ? 1 : (int32_t)CST_NVAR - 1)) % (int32_t)CST_NVAR);
+        break;
+    default:
         break;
     }
     return KB_SILENT;
 }
 
 /* key k plays kb_note[k] on track t: its chord (chord.c; the note alone with CHRD OFF). A note another key
- * holds already sounds: it is not started again (nor sent to MIDI OUT); the key keeps its notes */
+ * holds already sounds: it is not started again (nor sent to MIDI OUT); the key keeps its notes. ShinTech CHORD:
+ * a SET chord with STYLE on goes to the style (style.c sty_chord; kb_sty bit k), which plays it; with CHOLD the
+ * chord held before ends (sty_unlatch) */
+static uint32_t kb_sty;
 static void key_on(uint32_t k, track_t *t)
 {
-    uint32_t n, i, mc = trk_midi_ch(trk_index(t)), vel = kb_vel;
+    uint32_t n, i, mc = trk_midi_ch(trk_index(t)), vel = kb_vel, set = chord_set_on(t) && !((kb_single >> k) & 1u);
     if (((kb_single >> k) & 1u) && chord_set_on(t)) {   /* (ShinTech CHORD: C5 .. G5's single notes) */
         kb_chord[k][0] = kb_note[k];
         n = 1;
     } else
         n = chord_build(t, kb_note[k], kb_chord[k]);
     kb_chn[k] = 0;
+    kb_sty &= ~(1u << k);
+    if (set && sty_wants(t)) {
+        sty_chord(t, kb_chord[k], n, vel, k + 1u, 0);
+        kb_sty |= 1u << k;
+        last_note = kb_note[k];
+        return;
+    }
+    if (set)
+        sty_unlatch(t);
     in_key = (uint8_t)(k + 1u);                     /* (the arp keeps the key: arp_add) */
     for (i = 0; i < n; i++) {
         uint32_t x = kb_chord[k][i];
@@ -824,11 +845,21 @@ static void key_on(uint32_t k, track_t *t)
     last_note = kb_note[k];                         /* (step entry, the SAMPLE zone: the key's note) */
 }
 
-/* key k is up: the notes it started end, but those another key still holds */
+/* key k is up: the notes it started end, but those another key still holds. ShinTech CHORD: a style's chord
+ * stops (or plays on: CHOLD); a SET chord with CHOLD sounds on (style.c sty_latch) */
 static void key_off(uint32_t k, track_t *t)
 {
     uint32_t n = kb_chn[k], i, mc = trk_midi_ch(trk_index(t));
     kb_chn[k] = 0;
+    if ((kb_sty >> k) & 1u) {
+        kb_sty &= ~(1u << k);
+        (void)sty_release(t, k + 1u, 0);
+        return;
+    }
+    if (n && t->p[P_CHOLD] && chord_set_on(t) && !((kb_single >> k) & 1u)) {
+        sty_latch(t, kb_chord[k], n);
+        return;
+    }
     for (i = 0; i < n; i++) {
         uint32_t x = kb_chord[k][i];
         if (midi_local_held(t, x))
@@ -966,6 +997,7 @@ static void seq_start(void)
     clk_pos = CLK_START;                           /* the metronome's first beat with step 0 */
     song.playing = 1;
     slicer_start();                                /* slicer.c: its step 0 with the sequencer's */
+    sty_restart();                                 /* ShinTech CHORD: a style playing from its step 1 too */
     perf_start();                                  /* perform.c: its 1/16 grid too */
 }
 
@@ -1481,6 +1513,7 @@ static void events_block(uint32_t n)
         if ((pr >> i) & 1u) {
             midi_forget_track(i);
             trk_all_off(t);
+            sty_forget(i);                            /* (ShinTech CHORD: a style's notes) */
             t->nheld = 0;
             t->arp_phys = 0;
             arp_forget(t);
@@ -1541,6 +1574,9 @@ static void events_block(uint32_t n)
         uint32_t arp_n = clock_mode ? midi_grid_advance(&midi_arp_grid[i], seq_n, (uint32_t)trk[i].p[P_ARATE]) : n;
         arp_step(&trk[i], arp_n, clock_mode && song.playing ? arp_n : n);
     }
+    for (i = 0; i < NTRK; i++)                        /* ShinTech CHORD: the styles playing (style.c) */
+        if (sty_busy(i))
+            sty_block(&trk[i], n, seq_n, clock_mode);
     beat_pos += clock_mode ? midi_grid_advance(&midi_beat_grid, seq_n, 0u) : n; /* ARP LED beat */
     if (beat_pos >= beat_samples()) {
         beat_pos -= beat_samples();

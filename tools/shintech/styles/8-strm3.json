@@ -1,0 +1,14 @@
+{"style": 8, "code": "STRM3", "name": "STRUM 3", "variations": [
+    {"name": "BASS+DOWN", "rate": "1/8", "steps": 8, "strum": 14, "events": ["0 B 112 4", "4 B 84 4", "2 U 84 2 d", "6 U 84 2 d"]},
+    {"name": "HARP UP", "rate": "1/8", "steps": 8, "strum": 63, "events": ["0 A 112 8 d"]},
+    {"name": "HARP DOWN", "rate": "1/8", "steps": 8, "strum": 63, "events": ["0 A 112 8 u"]},
+    {"name": "ROLL HALF", "rate": "1/8", "steps": 8, "strum": 45, "events": ["0 A 112 4 d", "4 A 112 4 u"]},
+    {"name": "PIANO ROLL", "rate": "1/4", "steps": 4, "strum": 30, "events": ["0 A 112 2 d", "2 A 84 2 d"]},
+    {"name": "BASS 5TH", "rate": "1/8", "steps": 8, "strum": 14, "events": ["0 0 112 4", "4 2 84 4", "2 U 84 2 d", "6 U 84 2 d"]},
+    {"name": "SOFT 8", "rate": "1/8", "steps": 8, "strum": 20, "events": ["0 A 72 1 d", "1 A 72 1 d", "2 A 72 1 d", "3 A 72 1 d", "4 A 72 1 d", "5 A 72 1 d", "6 A 72 1 d", "7 A 72 1 d"]},
+    {"name": "SWELL", "rate": "1/8", "steps": 8, "strum": 35, "events": ["0 A 78 4 d", "4 A 112 4 u"]},
+    {"name": "HYMN", "rate": "1/4", "steps": 4, "strum": 15, "events": ["0 A 112 2 d", "2 A 112 2 d"]},
+    {"name": "LULLABY", "rate": "1/4", "steps": 3, "strum": 25, "events": ["0 B 112 3", "1 U 84 .75 d", "2 U 84 .75 d"]},
+    {"name": "SPREAD UP", "rate": "1/8", "steps": 8, "strum": 35, "events": ["0 A 112 2 u", "2 A 84 2 u", "4 A 112 2 u", "6 A 84 2 u"]},
+    {"name": "CHIME", "rate": "1/8", "steps": 8, "strum": 28, "events": ["0 A 112 2 d", "2 A 84 2 u", "6 A 84 2 d"]}
+]}

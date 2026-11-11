@@ -48,6 +48,9 @@ _Static_assert(sizeof N_CHRD / sizeof N_CHRD[0] == CHRD_SET + 1u, "N_CHRD: SET l
 #include "chord_sets.h"
 static const char *const N_CVOIC[] = {"CLOSE", "OPEN", "SPRD", "AUTO"};
 static const char *const N_CINV[] = {"AUTO", "ROOT", "1ST", "2ND", "3RD"};
+#include "chord_styles.h"              /* (tools/shintech/gen_styles.py) */
+static const char *const N_CSTY[] = {"OFF", CST_CODES};   /* ShinTech CHORD: STYLE (style.c) */
+_Static_assert(sizeof N_CSTY / sizeof N_CSTY[0] == CST_NSTY + 1u, "N_CSTY: OFF and the styles");
 #define CRNG_LO 36                    /* RANGE 0: C2 */
 static const char *const N_CRNG[] = {
     "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2",
@@ -197,6 +200,10 @@ static const param_desc_t TP[P_COUNT] = {
     [P_CINV] = PE("INV", N_CINV, 0),
     [P_CRNG] = PE("RNG", N_CRNG, 19),                               /* G3: the window G3 .. F#4 */
     [P_CBASS] = PE("BASS", N_ONOFF, 0),
+    [P_CSTY] = PE("STYLE", N_CSTY, 0),                              /* ShinTech CHORD styles */
+    [P_CVAR] = PD("VAR", F_INT, 0, (int16_t)(CST_NVAR - 1u), 0),    /* (shown 1..12) */
+    [P_CHOLD] = PE("CHOLD", N_ONOFF, 0),                            /* (not HOLD: the ARP's P_AHOLD has it) */
+    [P_CSTRM] = PD("STRUM", F_INT, 0, 60, 0),                       /* ms between a strum's notes, 0 AUTO */
 };
 
 /* the INSERT's A B C as its TYPE means them (TP's ranges and defaults): the drives DRIVE TONE LEVEL, CRUSH BITS RATE
@@ -363,6 +370,16 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
         fmt_named = 1;
         return;
     }
+    if (d == &TP[P_CVAR] || d == &TP[P_CSTRM]) {      /* ShinTech CHORD: VAR 1..12; STRUM AUTO, or its ms */
+        if (d == &TP[P_CSTRM] && !v) {
+            str_cpy(val, "AUTO", 6);
+            fmt_named = 1;
+            return;
+        }
+        fmt_int(val, d == &TP[P_CVAR] ? v + 1 : v);
+        *unit = d == &TP[P_CSTRM] ? "ms" : "";
+        return;
+    }
     switch (d->fmt) {
     case F_PCT:                                     /* a 0..100 range (SWG) is its value, others a share of 127 */
         fmt_int(val, d->max == 100 ? v : (v * 100 + 63) / 127);
@@ -473,7 +490,7 @@ enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE,
 enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK };   /* SC_TRK: the TRACKS page (ui_input.c tracks_edit) */
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
        GR_SLCR, GR_MOD, GR_PATS, GR_SONG, GR_TOOLS, GR_CHORD, GR_SLICES, GR_EVENTS,
-       GR_FMOP, GR_FMOP2, GR_FMENV, GR_INS };   /* (GR_STEPS: SEQ TOOLS' knobs; GR_FMOP..: FM6's operator pages, ui_fm6op.c) */
+       GR_FMOP, GR_FMOP2, GR_FMENV, GR_INS, GR_STYLE };   /* (GR_STEPS: SEQ TOOLS' knobs; GR_FMOP..: FM6's operator pages, ui_fm6op.c) */
 
 typedef struct {
     const char *title;
@@ -500,6 +517,7 @@ static const page_t PAGES[] = {
     {"CHORD", FAM_SCL, SC_TRACK, GR_CHORD, {P_CHRD, P_VOIC, 0xFF, 0xFF}},   /* SCL again: the chord keys (chord.c) */
     {"CHORD SET", FAM_SCL, SC_TRACK, GR_CHORD, {P_CSET, P_CKEY, P_CBASS, 0xFF}},   /* ShinTech CHORD: CHRD SET only */
     {"VOICING", FAM_SCL, SC_TRACK, GR_CHORD, {P_CVOIC, P_CINV, P_CRNG, 0xFF}},    /* (ui.c page_visible) */
+    {"STYLE", FAM_SCL, SC_TRACK, GR_STYLE, {P_CSTY, P_CVAR, P_CHOLD, P_CSTRM}},   /* ShinTech CHORD styles (style.c) */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E7}},   /* ANALOG only (1.5, #104): TYPE CUT RES KTR */

@@ -170,6 +170,12 @@ still FUN10 ("FUNA"), exactly as upstream writes it. One with them is FUNB, whic
 the extension first, keeping every record a stored project or the autosave names, then the project. A missing
 record means CHORD defaults, never a refused project.
 
+**As built (Phase 2).** The style player is `firmware/src/style.c`, a per-track loop next to the ARP (not a reuse of
+`arp_step`: it plays several timed notes a step and strums). It times steps with `beat_samples` and the swing of
+`swing_step_len`, and under the external clock advances by the pulses as `midi_grid_advance` does (its own remainder,
+the quarter a multiple of the rate's denominator). Its state (a chord, 16 note slots) is in `.pool`, not in `track_t`.
+The four style parameters went in after the CHORD ones, before `P_E0`, and are kept in the project extension.
+
 **Formats (plan).** The project becomes **FUN11** ("FUNB"). Its main record keeps FUN10's layout and size (one 3,840 B
 object: there is no room to grow it), holding the parameters FUN10 has; the new CHORD and POLY6 track parameters are
 written to the project extension object instead (by id, so later additions need no layout change). FUN10 and every

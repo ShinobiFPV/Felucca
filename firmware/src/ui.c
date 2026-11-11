@@ -433,7 +433,8 @@ static int page_visible(uint32_t i)
         return TSEL->eng_req % NENGINES == ENGI_DRUM;
     if (PAGES[i].id[0] == P_FTYPE)                    /* FILTER (1.5, #104): ANALOG's */
         return ENGINES[TSEL->eng_req % NENGINES] == &ENG_ANALOG;
-    if (PAGES[i].id[0] == P_CSET || PAGES[i].id[0] == P_CVOIC)   /* ShinTech CHORD SET, VOICING: CHRD SET's */
+    if (PAGES[i].id[0] == P_CSET || PAGES[i].id[0] == P_CVOIC || PAGES[i].id[0] == P_CSTY)   /* ShinTech CHORD SET,
+                                                                                * VOICING, STYLE: CHRD SET's */
         return TSEL->p[P_CHRD] == CHRD_SET;
     if (PAGES[i].graph >= GR_FMOP && PAGES[i].graph <= GR_FMENV)
         return TSEL->eng_req % NENGINES == ENGI_FM6;
@@ -1276,7 +1277,7 @@ static int param_kept(uint32_t i)
 {
     return i == P_LEVEL || i == P_PAN || i == P_MUTE || (i >= P_AMODE && i <= P_SGATE) ||
            (i >= P_SLCR && i <= P_SLDEPTH) || i == P_CHRD || i == P_VOIC || i == P_SQNT ||
-           (i >= P_CSET && i <= P_CBASS);   /* (ShinTech CHORD: the chord setup stays with the track, as the chord keys) */
+           (i >= P_CSET && i <= P_CSTRM);   /* (ShinTech CHORD: the chord setup stays with the track, as the chord keys) */
 }
 
 /* a retired preset kept as an alias, so stored preset numbers stay valid: SAMPLE 1, once TRANH, is PIANO

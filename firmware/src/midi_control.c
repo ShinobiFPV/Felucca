@@ -92,7 +92,10 @@ static void midi_release(uint32_t ch, uint32_t note)
             for (i = 0; i < n; i++)
                 nn[i] = m->note[i];
             m->id = 0;
-        }
+            if (!n)                               /* (ShinTech CHORD: a style's chord, style.c) */
+                (void)sty_release(&trk[id - 1u], 0, (ch << 7 | note) + 1u);
+        } else if (sty_release(&trk[id - 1u], 0, (ch << 7 | note) + 1u))
+            n = 0;                                /* (.. kept nowhere: every chord's room taken) */
         for (i = 0; i < n; i++)
             if (!midi_local_held(&trk[id - 1u], nn[i]))
                 input_off(&trk[id - 1u], nn[i]);  /* input_off also checks other MIDI owners */
@@ -104,8 +107,15 @@ static void midi_release(uint32_t ch, uint32_t note)
 static void midi_play(track_t *t, uint32_t ch, uint32_t note, uint32_t vel)
 {
     uint8_t nn[CHORD_NOTES];
-    uint32_t n = chord_build(t, note, nn), i, f = 0;
-    if (n > 1u || nn[0] != note)
+    uint32_t n = chord_build(t, note, nn), i, f = 0, sw = sty_wants(t);
+    if (sw) {                                     /* ShinTech CHORD: a style plays it (style.c); its MIDI note is */
+        for (f = 0; f < MCHORD_N && mchord[f].id; f++)   /* kept as a chord of no notes (midi_release) */
+            ;
+        sty_chord(t, nn, n, vel, 0, (ch << 7 | note) + 1u);
+        n = 0;
+        if (f == MCHORD_N)
+            return;
+    } else if (n > 1u || nn[0] != note)
         for (f = 0; f < MCHORD_N && mchord[f].id; f++)
             ;
     if (f == MCHORD_N) {                          /* no room to keep a chord: the note alone */
@@ -115,7 +125,7 @@ static void midi_play(track_t *t, uint32_t ch, uint32_t note, uint32_t vel)
     for (i = 0; i < n; i++)
         if (!midi_note_held(t, nn[i]) && !midi_local_held(t, nn[i]))
             input_on(t, nn[i], vel);
-    if (n > 1u || nn[0] != note) {
+    if (sw || n > 1u || nn[0] != note) {
         mchord_t *m = &mchord[f];
         m->ch = (uint8_t)ch;
         m->src = (uint8_t)note;

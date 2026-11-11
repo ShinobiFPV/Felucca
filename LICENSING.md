@@ -50,8 +50,9 @@ firmware derived from it, you must also give your recipients its complete corres
 source under the same licence. That includes devices that ship with modified Felucca inside.
 
 The ShinTech CHORD fork adds files of its own, all GPL-3.0-only (Copyright (C) 2026 William Kew, ShinTech
-Electronics): `firmware/src/chordset.c`, `firmware/src/proj_ext.c`, `tools/shintech/` (the chord set generator and its data,
-`tools/shintech/chordsets/`), `tests/chordset_test.c`, `tests/funb_test.c`, `tests/funb_save_test.c`, `tests/shintech/`, and the `*-SHINTECH.md` and
+Electronics): `firmware/src/chordset.c`, `firmware/src/proj_ext.c`, `firmware/src/style.c`, `tools/shintech/` (the chord
+set and style generators and their data, `tools/shintech/chordsets/`, `tools/shintech/styles/`), `tests/chordset_test.c`,
+`tests/chordmode_test.c`, `tests/style_test.c`, `tests/funb_test.c`, `tests/funb_save_test.c`, `tests/shintech/`, and the `*-SHINTECH.md` and
 `docs/shintech/` documents. It uses no third-party code beyond what is listed below.
 
 ## Hügelton Instruments' own work

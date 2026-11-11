@@ -108,7 +108,8 @@ def generate():
             [tools / "gen_fm6_patches.py", GEN / "felucca_fm6.h"],
             [tools / "gen_samples.py", GEN / "felucca_samples.h"],
             [tools / "gen_adpcm.py", GEN / "felucca_adpcm.h"],
-            [tools / "shintech" / "gen_chords.py", GEN / "chord_sets.h"]]   # ShinTech CHORD: the chord sets
+            [tools / "shintech" / "gen_chords.py", GEN / "chord_sets.h"],   # ShinTech CHORD: the chord sets
+            [tools / "shintech" / "gen_styles.py", GEN / "chord_styles.h"]]   # .. and its styles
     procs = [subprocess.Popen([sys.executable, *map(str, c)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                               text=True) for c in cmds]
     failed = []

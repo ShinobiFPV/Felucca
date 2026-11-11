@@ -1,0 +1,14 @@
+{"style": 6, "code": "STRM1", "name": "STRUM 1", "variations": [
+    {"name": "WHOLE", "rate": "1/8", "steps": 8, "strum": 25, "events": ["0 A 112 8 d"]},
+    {"name": "HALVES", "rate": "1/8", "steps": 8, "strum": 22, "events": ["0 A 112 4 d", "4 A 112 4 d"]},
+    {"name": "QUARTERS", "rate": "1/8", "steps": 8, "strum": 18, "events": ["0 A 112 2 d", "2 A 84 2 d", "4 A 112 2 d", "6 A 84 2 d"]},
+    {"name": "EIGHTHS", "rate": "1/8", "steps": 8, "strum": 12, "events": ["0 A 112 1 d", "1 A 84 1 d", "2 A 112 1 d", "3 A 84 1 d", "4 A 112 1 d", "5 A 84 1 d", "6 A 112 1 d", "7 A 84 1 d"]},
+    {"name": "DOWN UP", "rate": "1/8", "steps": 8, "strum": 12, "events": ["0 A 112 1 d", "1 A 84 1 u", "2 A 112 1 d", "3 A 84 1 u", "4 A 112 1 d", "5 A 84 1 u", "6 A 112 1 d", "7 A 84 1 u"]},
+    {"name": "SLOW ROLL", "rate": "1/8", "steps": 8, "strum": 60, "events": ["0 A 112 8 d"]},
+    {"name": "HALF D-U", "rate": "1/8", "steps": 8, "strum": 20, "events": ["0 A 112 4 d", "4 A 112 2 d", "6 A 84 2 u"]},
+    {"name": "BALLAD", "rate": "1/8", "steps": 8, "strum": 20, "events": ["0 A 112 2 d", "2 A 84 2 d", "4 A 84 2 d", "6 A 84 .75 d", "7 A 84 .75 u"]},
+    {"name": "WALTZ", "rate": "1/4", "steps": 3, "strum": 18, "events": ["0 A 112 .75 d", "1 A 84 .75 d", "2 A 84 .75 d"]},
+    {"name": "UPSTROKES", "rate": "1/8", "steps": 8, "strum": 18, "events": ["0 A 112 2 u", "2 A 84 2 u", "4 A 112 2 u", "6 A 84 2 u"]},
+    {"name": "TWO BAR", "rate": "1/8", "steps": 16, "strum": 24, "events": ["0 A 112 8 d", "8 A 84 4 d", "12 A 112 2 d", "14 A 84 2 u"]},
+    {"name": "DOTTED", "rate": "1/16", "steps": 16, "strum": 16, "events": ["0 A 112 3 d", "3 A 84 3 d", "6 A 112 2 d", "8 A 84 3 d", "11 A 84 3 u", "14 A 84 2 d"]}
+]}

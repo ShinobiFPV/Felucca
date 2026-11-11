@@ -692,6 +692,7 @@ static void state(void)                          /* a playing song with steps on
 {
     uint32_t i;
     ui_power_on();
+    memset(sty, 0, sizeof sty);                  /* (ShinTech CHORD: no style left playing from a scene before) */
     seq_fill = 0;                                /* (1.5.5: GLO's FILL, held in layer_glo_fill only; */
     eu.on = 0;                                   /* SEQ TOOLS' EUCLID, open in layer_seq_euclid*) */
     if (large_on) ui_prefs |= PREF_LARGE;
@@ -775,7 +776,7 @@ static void sg_fresh(void)
 enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESETS, S_PRESETS_NOFAV, S_USER, S_PHRASES, S_PROJECT, S_TOOLS,
        S_SONG_EMPTY, S_SONG, S_STEP, S_AUTO_STEPS, S_AUTO_ADD_CHANCE, S_MOTION, S_DRUM, S_DRUM_HAND, S_DRUM_CYM, S_MIXER,
        S_MIXER_HOME, S_MIXER_PAN,
-       S_ENV, S_ENVDEST, S_LFO, S_MOD, S_FX, S_SLICER, S_DLY, S_SCL, S_CHORD, S_CHORD_WIDE, S_CHORD_OFF, S_CHORD_KIT, S_CHORD_SET, S_CHORD_VOICING, S_ARP, S_VOICE, S_CLOCK, S_MENU_MIDI,
+       S_ENV, S_ENVDEST, S_LFO, S_MOD, S_FX, S_SLICER, S_DLY, S_SCL, S_CHORD, S_CHORD_WIDE, S_CHORD_OFF, S_CHORD_KIT, S_CHORD_SET, S_CHORD_VOICING, S_CHORD_STYLE, S_ARP, S_VOICE, S_CLOCK, S_MENU_MIDI,
        S_EDIT_ANALOG, S_EDIT_DIGITAL, S_OP_ENV, S_EDIT_WHEEL, S_EDIT_SAMPLE, S_EDIT_GRAIN, S_EDIT_PHYS,
        S_ALG1, S_ALG2, S_ALG3, S_ALG4, S_ALG5, S_ALG6, S_ALG7, S_ALG8, S_OP_LEVEL,
        S_FM6_ALG1, S_FM6_ALG5, S_FM6_ALG22, S_FM6_ALG32, S_FM6_OP, S_FM6_OP_FIXED, S_FM6_OP2, S_FM6_OP_ENV, S_FM6_OP_ENV_REL,
@@ -806,7 +807,7 @@ enum { S_HOME, S_HOME_IDLE, S_MESSAGE, S_MESSAGE_KEY, S_MESSAGE_NOFILE, S_PRESET
        S_MENU_MIDI_TRACK, S_MENU_MIDI_TCH_UNUSED, S_MENU_MIDI_AUTO, S_HOME_TRACKS_MIDI, S_MIXER_MIDI, S_EDIT_PHASE_FOLD, S_COUNT };
 static const char *const S_NAME[S_COUNT] = {"home", "home_idle", "message", "message_key", "message_nofile", "presets", "presets_nofav", "user",
     "phrases", "project", "tools", "song_empty", "song", "step", "auto_steps", "auto_add_chance", "automation", "drum",
-    "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "chord_set", "chord_voicing", "arp",
+    "drum_hand", "drum_cym", "mixer", "mixer_from_home", "mixer_pan", "env", "env_dest", "lfo", "mod", "fx", "slicer", "dly", "scl", "chord", "chord_wide", "chord_off", "chord_kit", "chord_set", "chord_voicing", "chord_style", "arp",
     "voice", "clock", "menu_midi", "edit_analog", FELUCCA_FM4 ? "edit_digital" : "edit_fm6", "op_env", "edit_wheel", "edit_sample",
     "edit_grain", "edit_phys", "alg_1", "alg_2", "alg_3", "alg_4", "alg_5", "alg_6", "alg_7", "alg_8", "op_level", "fm6_alg_01", "fm6_alg_05", "fm6_alg_22", "fm6_alg_32", "fm6_op", "fm6_op_fixed", "fm6_op2", "fm6_op_env", "fm6_op_env_rel", "confirm_seq", "confirm_project", "confirm_user", "confirm_pattern",
     "confirm_motion", "confirm_erase", "menu", "menu_speaker", "about", "about_rec", "about_credits", "about_end", "uboot", "calibration", "splash",
@@ -1174,6 +1175,23 @@ static void setup(int s)
             chord_build(TSEL, 71u, out);
         }
         go_title(s == S_CHORD_SET ? "CHORD SET" : "VOICING"); ui.hot_col = 0; ui.hot_t = 30;
+        break;
+    }
+    /* ShinTech CHORD STYLE: BEAT1 STAB+BASS playing Dm9 of WARM KEYS, on its step 6 */
+    case S_CHORD_STYLE: {
+        uint8_t out[CHORD_NOTES];
+        uint32_t k, n;
+        for (k = 0; k < CS_NSETS && memcmp(CS_SET[k].name, "WARM KEYS", 10); k++)
+            ;
+        TSEL->p[P_VOICE] = V_POLY; TSEL->p[P_CHRD] = CH_SET; TSEL->p[P_CSET] = (int16_t)(k % CS_NSETS);
+        TSEL->p[P_CSTY] = 3;
+        for (k = 0; k < CST_NVAR && memcmp(CST_VAR[2u * CST_NVAR + k].name, "STAB+BASS", 9); k++)
+            ;
+        TSEL->p[P_CVAR] = (int16_t)(k % CST_NVAR);
+        n = chord_build(TSEL, 60u, out);
+        sty_chord(TSEL, out, n, 100, 0, 0);
+        sty[song.sel].step = 6; sty[song.sel].count = 6;
+        go_title("STYLE"); ui.hot_col = 1; ui.hot_t = 30;
         break;
     }
     case S_ARP: go_title("ARP"); break;
@@ -1802,8 +1820,8 @@ static void sweep_columns(void)
             pal(UI_GREY_INDEX);
             eng(e);
             TSEL->p[P_ESYNC] = (int16_t)esync_pass;
-            if (PAGES[i].id[0] == P_CSET || PAGES[i].id[0] == P_CVOIC)
-                TSEL->p[P_CHRD] = CH_SET;                /* (ShinTech: CHORD SET, VOICING show with CHRD SET only) */
+            if (PAGES[i].id[0] == P_CSET || PAGES[i].id[0] == P_CVOIC || PAGES[i].id[0] == P_CSTY)
+                TSEL->p[P_CHRD] = CH_SET;                /* (ShinTech: CHORD SET, VOICING, STYLE show with CHRD SET only) */
             ui.home = 0; ui.page = (uint8_t)i; page_entered();
             if (!page_visible(i)) continue;
             snprintf(name, sizeof name, "%s%s/%s%s", large_on ? "LARGE " : "", ENGINES[e]->name, PAGES[i].title,

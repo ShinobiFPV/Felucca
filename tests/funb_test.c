@@ -134,8 +134,9 @@ int main(void)
     static project_store_t s, s2;
     uint32_t t, i, ok;
     px_reset();
-    check("the new parameters: SET KEY VOICING INVERSION RANGE BASS, past FUN10's 114, before E0..E7",
-          PX_FIRST == 106u && P_CSET == 106u && P_CBASS == 111u && P_E0 == 112u && P_COUNT == 120u && P_COUNT < 128u);
+    check("the new parameters: SET KEY VOICING INVERSION RANGE BASS, STYLE VAR HOLD STRUM, past FUN10's 114, before E0..E7",
+          PX_FIRST == 106u && P_CSET == 106u && P_CBASS == 111u && P_CSTY == 112u && P_CSTRM == 115u && P_E0 == 116u &&
+          P_COUNT == 124u && P_COUNT < 128u);
 
     /* 1. nothing new: FUN10 as upstream writes it */
     make(&a, 0);

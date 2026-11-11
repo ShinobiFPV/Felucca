@@ -85,6 +85,12 @@ layout, byte 67 the P_COUNT of its motion ids, its extension record's digest in 
 backup does not carry yet. A FUNB restored without it loads with those six at their defaults. Upstream firmware shows a
 FUNB slot as empty.
 
+**ShinTech CHORD styles (124 parameters):** four more track parameters before the engine parameters, which moved from
+112..119 to 116..123: P_COUNT 124, P_E0 116. `STYLE` (112: OFF ARP1 ARP2 BEAT1 BEAT2 BEAT3 STRM1 STRM2 STRM3 STRM4),
+`VAR` (113, the variation 0..11, shown 1..12), `CHOLD` (114, OFF ON) and `STRUM` (115, ms between a strum's notes 0..60,
+0 = the variation's own). Like the six before them they live in the project extension (FUNB), not in the object. No
+command changed.
+
 ## Framing
 
 A request is `F0 7D 46 4C <cmd> <args...> F7`:

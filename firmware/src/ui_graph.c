@@ -448,6 +448,64 @@ static void graph_chord(const track_t *t, uint16_t c)
                  !on ? T_RAISE : note % 12u == (uint32_t)r % 12u ? T_ACCENT : c, T_SURF);
     }
 }
+/* ShinTech CHORD STYLE (style.c): the variation's name, its style and rate; its loop as steps across (a short loop
+ * again, to 16 at least), each event a bar from its step as long as it sounds, as high as the chord note it plays
+ * (an arp's way up or down a three-note chord, the playing chord's notes when one plays; a chord or a strum full
+ * height, the bass low), ACCENT from velocity 100; the step playing a RAISE column */
+static void graph_style(const track_t *t, uint16_t c)
+{
+    const sty_t *s = &sty[trk_index(t)];
+    const cst_var_t *v;
+    char b[CST_NAME_LEN + 1u], cap[24];
+    uint32_t cells, w, i, r, tot, n, x0, ai = 0;
+    if (!t->p[P_CSTY]) {
+        panel_note("STYLE OFF", "[K1] A STYLE PLAYS THE CHORD", 0);
+        return;
+    }
+    v = &CST_VAR[sty_var_of(t)];
+    memcpy(b, v->name, CST_NAME_LEN);
+    b[CST_NAME_LEN] = 0;
+    str_cpy(cap, CST_NAME[t->p[P_CSTY] - 1], sizeof cap);
+    str_cpy(cap + str_len(cap), "  ", sizeof cap - str_len(cap));
+    str_cpy(cap + str_len(cap), CST_RATE_NAME[v->rate], sizeof cap - str_len(cap));
+    cv_text_on(14, 8, &AF_M, b, T_TEXT, T_SURF);
+    GFX_HOOK_ALIGN(0, 0, 0, 8 + AF_M.asc, AL_B, "style caption on the name's baseline");
+    cv_text_r(226, 8 + AF_M.asc - AF_S.asc, &AF_S, cap, T_MID, T_SURF);
+    for (cells = v->steps; cells < 16u; cells += v->steps)
+        ;
+    w = 216u / cells;
+    x0 = 13u + (216u - cells * w) / 2u;
+    n = s->on && s->n ? s->n : 3u;
+    tot = n * v->oct;
+    if (s->on && s->count % v->steps == s->step)       /* the step playing */
+        cv_rrect((int32_t)(x0 + s->count % cells * w), 30, (int32_t)w - 1, 74, 2, T_RAISE, T_SURF);
+    for (i = 0; i < cells; i++)                        /* a tick a step, the beats' brighter */
+        cv_rect((int32_t)(x0 + i * w + w / 2u), 106, 1, 4,
+                (i * CST_NUM[v->rate] * 12u / CST_DEN[v->rate]) % 12u ? T_RAISE : T_MID);
+    for (r = 0; r < cells; r += v->steps)
+        for (i = 0; i < v->nev; i++) {
+            const uint8_t *e = CST_EV[v->ev + i];
+            uint32_t sel = e[1] & 63u, len = ((e[3] & 63u) + 1u) * w / 4u, k, h, cyc = tot > 1u ? 2u * tot - 2u : 1u;
+            uint32_t x = x0 + (r + e[0]) * w;
+            if (sel == SS_A || sel == SS_U)
+                h = 66u;
+            else if (sel == SS_B)
+                h = 8u;
+            else {
+                if (sel >= SS_UP) {
+                    k = ai++;
+                    k = sel == SS_UP ? k % tot : sel == SS_DN ? tot - 1u - k % tot
+                      : sel == SS_UD ? (k % cyc < tot ? k % cyc : cyc - k % cyc) : (r + e[0]) * 7u % tot;
+                } else
+                    k = sel < 16u ? sel : sel - 16u < n ? n - 1u - (sel - 16u) : 0u;
+                h = 8u + 58u * (k < tot ? k : tot - 1u) / (tot > 1u ? tot - 1u : 1u);
+            }
+            if (x + len > x0 + cells * w)
+                len = x0 + cells * w - x;
+            cv_rrect((int32_t)x + 1, 102 - (int32_t)h, len > 3u ? (int32_t)len - 2 : 2, (int32_t)h, 1,
+                     e[2] >= 100u ? T_ACCENT : c, T_SURF);
+        }
+}
 /* the four sends as faders under their cards: a RAISE slot, the THEME fill from the bottom, a cap */
 static void graph_fx(const track_t *t, uint16_t c)
 {
@@ -1218,6 +1276,8 @@ static uint32_t graph_signature(void)
         h ^= (uint32_t)t->engine * 389u;             /* (MONO and kits follow the sounding engine) */
         h ^= (uint32_t)(chord_last[song.sel].bass + 1) * 977u;   /* (ShinTech: a SET chord's slash bass) */
     }
+    if (pg->graph == GR_STYLE)                       /* ShinTech: the step playing, the chord's size */
+        h = (h ^ (sty[song.sel].on + 2u * sty[song.sel].count + 1031u * sty[song.sel].n)) * 16777619u;
     if (pg->graph == GR_SONG) {
         h ^= ui.song_row * 40503u + chain_config.count * 7919u + ui.song_trk * 3571u;
         h = fnv(h, chain_config.row, sizeof chain_config.row);
@@ -2303,6 +2363,10 @@ static void draw_graph(void)
         case GR_CHORD:
             cv_oy = 0;
             graph_chord(t, c);
+            break;
+        case GR_STYLE:                                /* ShinTech CHORD styles */
+            cv_oy = 0;
+            graph_style(t, c);
             break;
         case GR_FX:
             graph_fx(t, c);

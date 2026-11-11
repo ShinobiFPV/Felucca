@@ -57,6 +57,11 @@
 #                   parameters, FUN10's motion ids); with them FUNB (byte 67 its P_COUNT, the extension record's digest
 #                   in the FM6 bytes' bit 7), loaded exactly with its record, at the defaults without; byte 67's ids;
 #                   the extension store (shared records, kept / dropped, damaged); 2000 random projects.
+# ShinTech CHORD styles (tests/style_test.c, tests/shintech/test_styles.py): the style player (firmware/src/style.c) on
+#                   the real keys, MIDI IN and MIDI OUT: notes at their steps at 90 / 120 / 150 BPM, SWING (straight
+#                   rates only), strums STRUM ms apart up and down, lengths, a release stops it, CHOLD, a chord changed
+#                   on the go, VAR, STYLE OFF, PLAY, the external clock's pulses, every variation balanced; the data
+#                   (tools/shintech/gen_styles.py -> build/gen/chord_styles.h): the grammar, the checks, today's table.
 # ShinTech CHORD sets (tests/chordset_test.c, tests/shintech/test_chordsets.py): the factory chord sets
 #                   (tools/shintech/gen_chords.py -> build/gen/chord_sets.h) read back, chordset.c's names (a table of
 #                   shapes; every factory chord's name parsed back to its notes), the symbol grammar, the generator's
@@ -293,6 +298,10 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "ShinTech CHORD sets: every factory chord read back, the names, genres" "$OUT/chordset_test" "$OUT/chordset_names.txt"
     run "ShinTech CHORD sets: the symbols, the generator's checks, today's table, each firmware name read back" \
         env CHORDSET_NAMES="$OUT/chordset_names.txt" python3 -m unittest -q tests/shintech/test_chordsets.py
+    $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/style_test" tests/style_test.c -lm
+    run "ShinTech CHORD styles: timing at three tempi, SWING, triplets, strums, release, HOLD, chord changes, VAR, PLAY, external clock, MIDI IN, all 108" "$OUT/style_test"
+    run "ShinTech CHORD styles: the event grammar, the generator's checks, the factory styles, today's table" \
+        python3 -m unittest -q tests/shintech/test_styles.py
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/speaker_test" tests/speaker_test.c -lm
     run "SPEAKER EQ: FLAT / LOWCUT / BASS+ responses, BASS+ harmonics of the bass, the sub cut, no offset after, headroom on a full-scale kick (#180)" "$OUT/speaker_test"
     run "DSP render (ANALOG preset 0)" "$OUT/hostsim" 0 0 1 "$OUT/render.wav"

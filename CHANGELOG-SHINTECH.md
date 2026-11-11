@@ -7,6 +7,42 @@ release notes are in its wiki. Projects that use the new features will not open 
 
 ## Unreleased
 
+### Phase 2: styles and variations
+
+- **Styles.** SCL > CHORD > CHORD SET > VOICING > **STYLE** (CHRD SET only): `STYLE` OFF / ARP1 ARP2 (arpeggios) /
+  BEAT1 BEAT2 BEAT3 (the whole chord in rhythms: syncopations, triplets, offbeats and stabs) / STRM1..STRM4 (strummed
+  phrases: simple, rhythmic, and a variation of each), `VAR` 1..12, `CHOLD` (HOLD) and `STRUM` (AUTO: the
+  variation's own, or 1..60 ms between a strum's notes). With a style on, a chord key (or MIDI IN note) hands its
+  voiced chord (SET, KEY, VOICING, INVERSION, RANGE, BASS, voice leading as in Phase 1) to the track's style player
+  (`firmware/src/style.c`) instead of sounding it; the player loops the variation on the chord. Any engine but a kit.
+  - The first chord starts the loop at its step 1 at once. Another chord while it plays changes the chord in place:
+    the old notes end, and what still sounds of the events at that point (a pad, a long stab: half a step of it left
+    or more) strikes again on the new chord, unstrummed. Letting go of the chord's key stops it.
+  - **HOLD** (`CHOLD`, or F#3): the style plays on after the key is let go, until another chord takes over or HOLD is
+    pressed again. With STYLE OFF, HOLD holds the chord itself the same way.
+  - **Tempo, swing, clock:** the steps follow BPM, the track's and the global SWING (straight rates; triplets play
+    straight), and the external clock (USB / TRS) the way the ARP does: its pulses step it (6 a 1/16), its Stop holds
+    it. PLAY restarts a running style at step 1 with the sequencer.
+  - Every note a style plays goes to MIDI OUT on the track's channel (the chord key itself sends nothing then).
+  - **A3 / B3** VARIATION - / + (round the twelve), **F#3** HOLD: the shortcut keys Phase 1 kept for them.
+  - The STYLE page shows the variation's name, the style and its rate over its loop drawn as steps (each event as long
+    as it sounds, as high as the chord note it plays; accents bright; a tick a step, the beats brighter) and the step
+    playing. HELP has its hint.
+- **Style data:** 9 styles x 12 variations, all original, as text: `tools/shintech/styles/<n>-<code>.json`, each
+  variation a loop of steps (rate 1/2 .. 1/32, 4T 8T 16T 32T) of events relative to the chord: "<step> <notes>
+  <velocity> <length> [d|u]", notes A (all) B (bass) U (all but the bass), the n-th from the bottom or top, or the arp's
+  next UP DOWN UP/DOWN RANDOM over 1..3 octaves; ' and , move an octave. `tools/shintech/gen_styles.py` checks them and
+  writes `build/gen/chord_styles.h` (642 events, 4.5 KB). Edit the JSON and rebuild.
+- Four new track parameters (ids 112..115: STYLE, VAR, CHOLD, STRUM; P_E0 116, P_COUNT 124), in the project extension
+  like Phase 1's (a project using them is FUNB); kept on sound loads, lockable, automatable, MIDI-learnable. The
+  built-in editor's tables and `web/EDITOR_PROTOCOL.md` have them. User preset records hold them already (143 slots).
+- Tests: `tests/style_test.c` (notes at their steps within one block at 90 / 120 / 150 BPM, swing, triplets, strums
+  up and down and the STRUM knob, lengths, release, HOLD, a chord changed on the go, VAR on the go, STYLE OFF, PLAY,
+  the external clock's pulses and Stop, MIDI IN, HOLD with STYLE OFF, and all 108 variations over two bars with MIDI
+  OUT balanced and nothing left sounding), `tests/shintech/test_styles.py` (the grammar, the generator's checks, the
+  factory set's coverage, today's table); the UI renders draw `chord_style`. Cost: 8.8 KB of code (4.5 KB the data),
+  128 B of RAM, 680 B of pool.
+
 ### Phase 1: CHORD mode and chord sets
 
 - **CHORD mode on the keys.** SCL > CHORD, KNOB 1 to **SET** (after POW) on any engine but a kit. Then:

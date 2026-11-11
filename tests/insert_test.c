@@ -381,7 +381,7 @@ static void test_stored(void)
     motion_set_event(&trk[1], 3, P_IMIX, 77);
     motion_set_lock(&trk[2], 5, P_IA, 9);
     project_capture(&a);
-    ok = proj_pack(&st, &a) && st.raw[66] == 114u && P_COUNT == 120u   /* (ShinTech: FUN10 keeps 1.8's 114, the six CHORD parameters past them in the extension) */ && proj_import(&b, &st, sizeof st) &&
+    ok = proj_pack(&st, &a) && st.raw[66] == 114u && P_COUNT == 124u   /* (ShinTech: FUN10 keeps 1.8's 114, the ten CHORD parameters past them in the extension) */ && proj_import(&b, &st, sizeof st) &&
          !memcmp(&a, &b, sizeof a);
     for (k = 0; k < NTRK; k++)
         ok &= b.t[k].p[P_ITYPE] == (int16_t)(k * 2u + 1u) && b.t[k].p[P_IMIX] == (int16_t)(100 + k) &&
