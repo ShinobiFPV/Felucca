@@ -11,7 +11,7 @@
 // - fm1ota.js: a full install and an unplug during the write against a simulated FM-1
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import vm from "node:vm";
@@ -39,6 +39,7 @@ const E = vm.runInNewContext(proto + `
    UP, bank, capturePatch, auditionPatch, startWatch, libraryFile, readLibraryFile, paramKeys, patternFromSteps, stepsFromPattern, upName,
    mixer, parseNotes, parseHits, hitsText, gridFromSteps, LANE_NOTE, LANE_OF, readDevicePreferences, devicePresetRows, engineOrder, ENGINE_ORDER, aliasOf, fmtValue, FM6, enumShown, F,
    FM4, fromDigital, fromPerc, DRUM_KIT_E,
+   SHIN, CHORD, cpatDecode, cpatEncode, cpatEmpty, parseEvent, eventText, styleText, styleCode,
    MENU: typeof MENU === "undefined" ? null : MENU, MENU_TABS: typeof MENU_TABS === "undefined" ? null : MENU_TABS,
    readDeviceMenu: typeof readDeviceMenu === "undefined" ? null : readDeviceMenu,
    parseMotionAll: typeof parseMotionAll === "undefined" ? null : parseMotionAll,
@@ -1718,6 +1719,98 @@ async function updater() {
   ok(e2 && e2.code === "notfound", "fm1ota.js: no device -> error code 'notfound'");
 }
 
+/* ------------------------------------------------- ShinTech CHORD (cmds 90..96) --- */
+/* the chord grammar against the firmware (build/host/chordset_names.txt: every factory chord's root, pitch classes,
+   bass and the name the device gives it, written by tests/chordset_test.c), the styles' events against the factory
+   JSON, the pattern record, and the commands against the mock (the firmware's side: tests/shin_proto_test.c) */
+async function shinTests() {
+  const C = E.CMD, H = E.CHORD;
+  const names = join(HERE, "../build/host/chordset_names.txt");
+  if (existsSync(names)) {
+    let n = 0, bad = [];
+    for (const line of readFileSync(names, "utf8").split("\n").filter(Boolean)) {
+      const [, , root, mask, bass1, ...rest] = line.split(" "), fw = rest.join(" ");
+      const nm = H.name(+root, +mask, +bass1 - 1), back = H.parse(fw);
+      if (nm !== fw || H.mask12(back.iv) !== +mask || back.root !== +root || back.bass !== +bass1 - 1) bad.push(`${fw} (js ${nm})`);
+      n++;
+    }
+    bad.slice(0, 5).forEach((x) => console.log("  " + x));
+    ok(n >= 1200 && !bad.length, `ShinTech: the editor names every factory chord as the device does, and reads it back (${n})`);
+  } else console.log("ShinTech: chord names == firmware (no build/host/chordset_names.txt)".padEnd(64) + " skip");
+  {
+    const c = H.fromSymbol("Fmaj9/A open i1");
+    ok(c.root === 5 && c.bass === 9 && c.voicing === 1 && c.inv === 1 && H.symbolOf(c) === "Fmaj9/A open i1" &&
+       H.nameOf(H.fromSymbol("Dm7"), 2) === "Em7", "ShinTech: a chord symbol, its voicing and inversion, back; KEY transposes its name");
+    let threw = 0;
+    for (const s of ["H7", "C13#11b9#9", "C i4", "Cwide"]) try { H.parse(s); } catch { threw++; }
+    ok(threw === 4, "ShinTech: bad chord symbols refused");
+  }
+  {
+    const dir = join(HERE, "../tools/shintech/styles");
+    let n = 0, same = true;
+    for (const f of readdirSync(dir).filter((x) => x.endsWith(".json"))) {
+      const st = JSON.parse(readFileSync(join(dir, f), "utf8"));
+      for (const v of st.variations) for (const e of v.events) {
+        const a = E.parseEvent(e, v.steps), b = E.parseEvent(E.eventText(a), v.steps);
+        same &&= JSON.stringify(a) === JSON.stringify(b); n++;
+      }
+    }
+    let threw = 0;
+    for (const e of ["16 A 100 1", "0 0 100 1 d", "0 A 0 1", "0 A 100 .3"]) try { E.parseEvent(e, 16); } catch { threw++; }
+    ok(n > 600 && same && threw === 4, `ShinTech: every factory style event read and written back (${n}); bad ones refused`);
+  }
+  {
+    const p = E.cpatEmpty();
+    p.len = 12; p.div = 2; p.set = 4; p.key = 2; p.next = 7;
+    p.hand.push({ root: 2, mask: (1 << 2) | (1 << 6) | (1 << 9) | (1 << 13) });
+    p.step[0] = { chord: 2, style: E.styleCode(5, 3), note: 0, tempo: 0 };
+    p.step[3] = { chord: 16, style: 1, note: 72, tempo: 81 };
+    const b = E.cpatEncode(p), q = E.cpatDecode(b);
+    ok(b.length === 328 && JSON.stringify(q) === JSON.stringify(p) && E.styleText(p.step[0].style) === "STRM1 4" &&
+       E.styleText(0) === "KEEP" && E.styleText(1) === "OFF", "ShinTech: a chord pattern's 328 bytes and back; a step's STYLE in words");
+  }
+  /* the commands against the mock */
+  const m = E.makeMockDevice({ auto: false });
+  const link = new E.Link((d) => [...m.access.outputs.values()][0].send(d), { timeout: 100 });
+  [...m.access.inputs.values()][0].onmidimessage = (e) => link.receive(e.data);
+  const rq = (r) => link.request(r);
+  const info = E.parse[C.INFO](await rq(E.req.info()));
+  ok(info.shin === 1, "ShinTech: INFO 59 01 1 (the fork's commands)");
+  const list = E.parse[C.CS_LIST](await rq(E.req.csList(0, 16)));
+  ok(list.factory >= 1 && list.user === 16 && list.sets[0].used && list.sets[0].name, "ShinTech: CS_LIST: the factory sets, 16 user ones");
+  const f0 = E.parse[C.CS_GET](await rq(E.req.csGet(0)));
+  ok(!f0.rc && f0.chords.length === 12 && H.nameOf(f0.chords[1]) === "G/B", "ShinTech: CS_GET of a factory set: its chords");
+  const mine = { name: "MY SET", chords: ["Am9", "Dm7", "G13", "Cmaj9", "Fmaj7#11", "Bm7b5", "E7#9", "Am7/G", "F6", "Esus4", "E7", "Am"].map(H.fromSymbol) };
+  let r = E.parse[C.CS_PUT](await rq(E.req.csPut(3, mine)));
+  const back = E.parse[C.CS_GET](await rq(E.req.csGet(list.factory + 3)));
+  ok(!r.rc && !back.rc && back.name === "MY SET" && back.chords.map((c) => H.nameOf(c)).join() === "Am9,Dm7,G13,Cmaj9,Fmaj7#11,Bm7b5,E7#9,Am7/G,F6,Esus4,E7,Am",
+     "ShinTech: CS_PUT a user set; CS_GET reads the same chords back");
+  r = E.parse[C.CS_PUT](await rq(E.req.csPut(3, null)));
+  ok(!r.rc && E.parse[C.CS_GET](await rq(E.req.csGet(list.factory + 3))).rc === 2, "ShinTech: CS_PUT used 0 erases it (CS_GET rc 2)");
+  const sty = E.parse[C.STY_GET](await rq(E.req.styGet(0, 1)));
+  ok(!sty.rc && sty.ev.length && sty.steps, "ShinTech: STY_GET of a factory variation");
+  const v = { name: "MY STRUM", steps: 8, rate: 2, strum: 20, oct: 1, ev: ["0 A 110 2 d", "4 U 90 1 u", "6 0, 80 .5"].map((e) => E.parseEvent(e, 8)) };
+  r = E.parse[C.STY_PUT](await rq(E.req.styPut(0, v)));
+  const vb = E.parse[C.STY_GET](await rq(E.req.styGet(9, 0)));
+  ok(!r.rc && !vb.rc && vb.name === "MY STRUM" && vb.ev.map(E.eventText).join("|") === "0 A 110 2 d|4 U 90 1 u|6 0, 80 0.5",
+     "ShinTech: STY_PUT USER 1; STY_GET 9 0 reads it back");
+  const bad = { ...v, ev: [{ step: 0, sel: 0, oct: 0, vel: 90, len: 3, strum: 1 }] };
+  r = E.parse[C.STY_PUT](await rq(E.req.styPut(1, bad)));
+  ok(r.rc === 1 && E.parse[C.STY_GET](await rq(E.req.styGet(9, 1))).rc === 2, "ShinTech: STY_PUT with a strum on one note refused");
+  const p = E.cpatEmpty();
+  p.len = 8; p.step[0].chord = 2; p.step[2].chord = 1; p.step[4].note = 60;
+  r = E.parse[C.CPAT_PUT](await rq(E.req.cpatPut(5, p)));
+  const pb = E.parse[C.CPAT_GET](await rq(E.req.cpatGet(5)));
+  ok(!r.rc && !pb.rc && JSON.stringify(pb.pat) === JSON.stringify(p), "ShinTech: CPAT_PUT 5; CPAT_GET reads the same pattern back");
+  p.step[1].chord = 16;                              /* (a hand chord the pattern has none of) */
+  r = E.parse[C.CPAT_PUT](await rq(E.req.cpatPut(6, p)));
+  ok(r.rc === 1, "ShinTech: CPAT_PUT of a pattern naming a missing hand chord refused");
+  const m2 = E.makeMockDevice({ auto: false, noShin: true });
+  const l2 = new E.Link((d) => [...m2.access.outputs.values()][0].send(d), { timeout: 100 });
+  [...m2.access.inputs.values()][0].onmidimessage = (e) => l2.receive(e.data);
+  ok(E.parse[C.INFO](await l2.request(E.req.info())).shin === 0, "ShinTech: firmware without it: INFO has no 59 01");
+}
+
 await editorMock();
 await editorSamplePresets();
 mockTables();
@@ -1734,6 +1827,7 @@ await editorSessions();
 await editorFm6();
 await editorFm6Bank();
 await editorMidiLearn();
+await shinTests();
 fm6TabNoBank();
 await editorFm4();
 editorTabs();

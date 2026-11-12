@@ -454,6 +454,8 @@ const parse = {
       if (trailer[r] === 0x4E && trailer[r + 1] === 1) r += 3;                            /* and the MENU settings (1.0.4) */
       if (o.syncCaps && trailer[r] === 0x52 && trailer[r + 1] === 1) o.ratchet = trailer[r + 2];   /* RATCH: max hits */
     }
+    /* ShinTech CHORD (the fork): its tag last, 59 01 version: chord sets, styles, chord patterns (cmds 90..96) */
+    o.shin = trailer.length >= 3 && trailer[trailer.length - 3] === 0x59 && trailer[trailer.length - 2] === 1 ? trailer[trailer.length - 1] : 0;
     return o;
   },
   [CMD.UI_STATE](a) {
@@ -1957,6 +1959,7 @@ function makeMockDevice(opt = {}) {
   st.sel = 0; loadPattern(0);
   st.tracks[1].p[39] = -24; st.tracks[2].p[39] = 20; st.tracks[2].p[0] = 92;
   const project = () => JSON.parse(JSON.stringify({ tracks: st.tracks, sel: st.sel, g: st.g, songRows: st.songRows }));
+  st.shin = shinMockState();                         /* (ShinTech CHORD: sets, styles, patterns) */
   st.slots[0] = project();
 
   function handle(cmd, a) {
@@ -2105,6 +2108,7 @@ function makeMockDevice(opt = {}) {
           b(16);
           if (st.uiCaps) { b(0x55); b(1); b(st.uiCaps); b(0x4d); b(1); b(64); b(1); if (!opt.noFm6) { b(0x46); b(1); b(FM6.FACTORY_PK.length); b(0); }
             if (syncCaps()) { b(0x53); b(1); b(syncCaps()); if (!opt.noFm6) { b(0x50); b(1); b(3); } if (ratchetOn()) { b(0x52); b(1); b(4); } } }   /* (FM6 v2: no bank, preset patches) */
+          if (st.uiCaps && !opt.noShin) { b(0x59); b(1); b(1); }   /* (ShinTech CHORD: last) */
         }
         break;
       case CMD.GET: case CMD.SET: {
@@ -2298,6 +2302,9 @@ function makeMockDevice(opt = {}) {
         b(a[0]); b(rc);
         break;
       }
+      case CMD.CS_LIST: case CMD.CS_GET: case CMD.CS_PUT: case CMD.STY_GET: case CMD.STY_PUT: case CMD.CPAT_GET: case CMD.CPAT_PUT:
+        if (opt.noShin || !st.uiCaps || !shinMockHandle(st.shin, cmd, a, b, s)) return null;   /* (firmware without ShinTech) */
+        break;
       case CMD.SMP_INFO:
         b(3); b(SMP.SLOT_SIZE / 1024);
         st.smp.forEach((u) => { b(u.zones); s(u.zones ? u.name : ""); b(u.zones ? Math.ceil(u.len / 1024) : 0); });
@@ -2472,6 +2479,318 @@ function devicePresetRows(info, names, preferences) {
     .filter((row) => !preferences.state.filter || row.favorite);
 }
 
+/* ---- ShinTech CHORD: chord sets, styles, chord patterns (cmds 90..96, INFO 59 01; firmware editor_shin.c,
+   web/EDITOR_PROTOCOL.md "ShinTech") ---- */
+Object.assign(CMD, { CS_LIST: 90, CS_GET: 91, CS_PUT: 92, STY_GET: 93, STY_PUT: 94, CPAT_GET: 95, CPAT_PUT: 96 });
+const SHIN = { USER_SETS: 16, STYLES: 9, VARS: 12, MAX_EV: 32, NAME: 12, VNAME: 10, PAT_N: 64, PAT_STEPS: 64, HANDS: 16, PAT_SIZE: 328,
+  GENRES: ["POP", "SYNTHWAVE", "HOUSE", "TECHNO", "R&B", "NEO SOUL", "JAZZ", "LO-FI", "CINEMATIC", "FUNK", "GOSPEL", "MINIMAL", "USER"],
+  STYLE_CODES: ["ARP1", "ARP2", "BEAT1", "BEAT2", "BEAT3", "STRM1", "STRM2", "STRM3", "STRM4", "USER"],
+  RATES: ["1/2", "1/4", "1/8", "1/16", "1/32", "4T", "8T", "16T", "32T"],
+  DIVS: ["1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1/1", "2BAR", "4BAR"],
+  VOICINGS: ["close", "open", "spread"] };
+const NOTE_NAME = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+/* chord symbols, as tools/shintech/gen_chords.py reads them and firmware/src/chordset.c cs_name names them: one grammar
+   for the editor, the JSON files and the device's screen (web/test_web.mjs checks every factory chord both ways) */
+const CHORD = (() => {
+  const MAXN = 6, NOTE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  function parseNote(s) {
+    if (!s || !(s[0] in NOTE)) throw new Error(`no note in "${s}"`);
+    let n = NOTE[s[0]], i = 1;
+    while (i < s.length && (s[i] === "#" || s[i] === "b")) { n += s[i] === "#" ? 1 : -1; i++; }
+    return [((n % 12) + 12) % 12, s.slice(i)];
+  }
+  const T = (third, fifth, seventh) => (c) => Object.assign(c, third === undefined ? {} : { third }, fifth === undefined ? {} : { fifth },
+    seventh === undefined ? {} : { seventh });
+  const TOKENS = [
+    ["m7b5", T(3, 6, 10)], ["ø", T(3, 6, 10)], ["dim7", T(3, 6, 9)], ["o7", T(3, 6, 9)], ["dim", T(3, 6)],
+    ["mM", (c) => Object.assign(c, { third: 3, major7: true })], ["maj", (c) => { c.major7 = true; }], ["min", T(3)], ["aug", T(undefined, 8)],
+    ["sus2", (c) => Object.assign(c, { third: null, sus: 2 })], ["sus4", (c) => Object.assign(c, { third: null, sus: 5 })],
+    ["sus", (c) => Object.assign(c, { third: null, sus: 5 })],
+    ["add9", (c) => c.add.add(14)], ["add2", (c) => c.add.add(14)], ["add11", (c) => c.add.add(17)], ["add4", (c) => c.add.add(17)],
+    ["add13", (c) => c.add.add(21)], ["no3", T(null)], ["no5", T(undefined, null)], ["b5", T(undefined, 6)], ["#5", T(undefined, 8)],
+    ["b9", (c) => c.add.add(13)], ["#9", (c) => c.add.add(15)], ["#11", (c) => c.add.add(18)], ["b13", (c) => c.add.add(20)],
+    ["69", (c) => { c.add.add(9); c.add.add(14); }], ["13", (c) => { c.num = 13; }], ["11", (c) => { c.num = 11; }], ["9", (c) => { c.num = 9; }],
+    ["7", (c) => { c.num = 7; }], ["6", (c) => c.add.add(9)], ["5", (c) => Object.assign(c, { third: null, power: true })],
+    ["M", (c) => { c.major7 = true; }], ["Δ", (c) => { c.major7 = true; }], ["m", T(3)], ["-", T(3)], ["o", T(3, 6)], ["+", T(undefined, 8)],
+    ["(", () => {}], [")", () => {}],
+  ];
+  function parseQuality(q) {
+    const c = { third: 4, fifth: 7, seventh: null, num: null, major7: false, sus: null, power: false, add: new Set() };
+    let s = q;
+    while (s) {
+      const tk = TOKENS.find(([t]) => s.startsWith(t));
+      if (!tk) throw new Error(`cannot read "${s}" in "${q}"`);
+      tk[1](c); s = s.slice(tk[0].length);
+    }
+    let num = c.num;
+    if (num || c.major7) { if (c.seventh == null) c.seventh = c.major7 ? 11 : 10; num = num || 7; }
+    else if (c.seventh != null) num = 7;
+    const iv = new Set([0]);
+    for (const x of [c.third, c.sus, c.fifth, c.seventh]) if (x != null) iv.add(x);
+    if (num && num >= 9) iv.add(14);
+    if (num === 11) iv.add(17);
+    if (num === 13) iv.add(21);
+    if ((c.add.has(13) || c.add.has(15)) && num && num >= 9) iv.delete(14);
+    for (const x of c.add) iv.add(x);
+    let a = c.power ? [0, 7] : [...iv].sort((x, y) => x - y);
+    for (const drop of [7, 17]) if (a.length > MAXN && a.includes(drop) && drop !== a[0]) a = a.filter((x) => x !== drop);
+    if (a.length > MAXN) throw new Error(`"${q}": ${a.length} notes, at most ${MAXN}`);
+    return a;
+  }
+  /* "Fmaj9/A open i1" -> {root, iv (semitones above the root, iv[0] 0), bass (a pitch class, -1 none), voicing, inv} */
+  function parse(text) {
+    const parts = String(text).trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) throw new Error("empty chord");
+    const [root, rest0] = parseNote(parts[0]);
+    let rest = rest0.replace("6/9", "69"), bass = -1;
+    if (rest.includes("/")) {
+      const k = rest.lastIndexOf("/"), [b, tail] = parseNote(rest.slice(k + 1));
+      if (tail) throw new Error(`bass "${rest.slice(k + 1)}"`);
+      bass = b; rest = rest.slice(0, k);
+    }
+    const iv = parseQuality(rest);
+    let voicing = 0, inv = 0;
+    for (const a of parts.slice(1)) {
+      if (SHIN.VOICINGS.includes(a)) voicing = SHIN.VOICINGS.indexOf(a);
+      else if (/^i[0-3]$/.test(a)) inv = +a[1];
+      else throw new Error(`unknown "${a}" (close open spread, i0..i3)`);
+    }
+    if (inv >= iv.length) throw new Error(`inversion ${inv} of ${iv.length} notes`);
+    return { root, iv, bass: bass === root ? -1 : bass, voicing, inv };
+  }
+  const mask12 = (iv) => iv.reduce((m, i) => m | (1 << (i % 12)), 0);
+  /* chordset.c cs_name: a chord's name from its root, pitch classes above it (bit i: i semitones) and bass */
+  function name(root, m, bass = -1) {
+    const bit = (i) => (m >> i) & 1;
+    let b9 = bit(1), n9 = bit(2), b3 = bit(3), M3 = bit(4), p4 = bit(5), b5 = bit(6), p5 = bit(7), s5 = bit(8), M6 = bit(9);
+    const b7 = bit(10), M7 = bit(11), minor = !M3 && b3, third = M3 || b3, has7 = b7 || M7, s9 = M3 && b3;
+    let sus4 = 0, sus2 = 0, fb5 = !p5 && b5, fs5 = !p5 && s5 && !fb5, s = NOTE_NAME[root % 12];
+    const tail = () => (bass >= 0 && bass !== root % 12 ? "/" + NOTE_NAME[bass % 12] : "");
+    if (!third) { if (p4) sus4 = 1; else if (n9) { sus2 = 1; n9 = 0; } }
+    if (minor && fb5 && M6 && !has7) return s + "dim7" + (n9 ? "add9" : "") + tail();
+    let eleven = p4 && third, thirteen = M6 && has7;
+    const sixth = M6 && !has7, nineish = n9 || b9 || s9;
+    if (!third && !sus4 && !sus2 && !has7 && !sixth && !nineish && (m & ~0x81) === 0 && p5) return s + "5" + tail();
+    if (minor && fb5 && !has7 && !sixth) { s += "dim"; fb5 = 0; }
+    else if (M3 && fs5 && !has7 && !sixth) { s += "aug"; fs5 = 0; }
+    else if (minor) s += "m";
+    if (has7) {
+      if (M7) s += minor ? "M" : "maj";
+      const num = thirteen && nineish ? 13 : eleven && nineish ? 11 : n9 ? 9 : 7;
+      s += String(num);
+      if (num === 13) thirteen = 0;
+      if (num === 11) eleven = 0;
+      if (num >= 9 && n9 && (b9 || s9)) n9 = 1; else if (num >= 9) n9 = 0;
+    } else if (sixth) { s += n9 ? "69" : "6"; n9 = 0; thirteen = 0; }
+    if (sus4) s += "sus4";
+    if (sus2) s += "sus2";
+    if (!third && !sus4 && !sus2) s += "no3";
+    if (n9) s += "add9";
+    if (eleven) s += "add11";
+    if (thirteen) s += "add13";
+    if (fb5) s += "b5";
+    if (fs5) s += "#5";
+    if (b9) s += "b9";
+    if (s9) s += "#9";
+    if (p5 && b5) s += "#11";
+    if (p5 && s5) s += "b13";
+    return s + tail();
+  }
+  /* the wire's chord (EDITOR_PROTOCOL.md): {root, bass, voicing, inv, mask: the notes above the root, bit i - 1 = i semitones} */
+  const ivOf = (mask) => { const iv = [0]; for (let i = 0; i < 24 && iv.length < MAXN; i++) if ((mask >> i) & 1) iv.push(i + 1); return iv; };
+  const maskOf = (iv) => iv.reduce((m, i) => (i >= 1 && i <= 24 ? m | (1 << (i - 1)) : m), 0);
+  const fromSymbol = (text) => { const c = parse(text); return { root: c.root, bass: c.bass, voicing: c.voicing, inv: c.inv, mask: maskOf(c.iv) }; };
+  const nameOf = (ch, key = 0) => name((ch.root + key) % 12, mask12(ivOf(ch.mask)), ch.bass >= 0 ? (ch.bass + key) % 12 : -1);
+  const symbolOf = (ch) => [nameOf(ch), ...(ch.voicing ? [SHIN.VOICINGS[ch.voicing]] : []), ...(ch.inv ? ["i" + ch.inv] : [])].join(" ");
+  return { parse, name, mask12, ivOf, maskOf, fromSymbol, nameOf, symbolOf, MAXN };
+})();
+
+/* a chord pattern's 328 bytes (firmware cpat.c cpat_t) <-> {len, div, set, key, next, hand: [{root, mask}], step: [{chord, style, note, tempo}]}
+   (set / key: -1 the track's; next 0 itself again; chord 0 REST, 1 TIE, 2..13 the set's 1..12, 16.. hand chord 1..) */
+function cpatDecode(b) {
+  const p = { len: b[0], div: b[1], set: b[2] - 1, key: b[3] - 1, next: b[4], hand: [], step: [] };
+  for (let i = 0; i < Math.min(b[5], SHIN.HANDS); i++) { const o = 8 + 4 * i; p.hand.push({ root: b[o], mask: b[o + 1] | b[o + 2] << 8 | b[o + 3] << 16 }); }
+  for (let i = 0; i < SHIN.PAT_STEPS; i++) { const o = 72 + 4 * i; p.step.push({ chord: b[o], style: b[o + 1], note: b[o + 2], tempo: b[o + 3] }); }
+  return p;
+}
+function cpatEncode(p) {
+  const b = new Uint8Array(SHIN.PAT_SIZE);
+  b[0] = p.len; b[1] = p.div; b[2] = p.set + 1; b[3] = p.key + 1; b[4] = p.next; b[5] = p.hand.length;
+  p.hand.forEach((h, i) => { const o = 8 + 4 * i; b[o] = h.root; b[o + 1] = h.mask & 255; b[o + 2] = h.mask >> 8 & 255; b[o + 3] = h.mask >> 16 & 255; });
+  p.step.forEach((s, i) => { const o = 72 + 4 * i; b[o] = s.chord; b[o + 1] = s.style; b[o + 2] = s.note; b[o + 3] = s.tempo; });
+  return b;
+}
+const cpatEmpty = () => cpatDecode(new Uint8Array(SHIN.PAT_SIZE));
+/* a step's STYLE (0 KEEP, 1 OFF, 2 + style * 12 + variation) <-> its words */
+const styleCode = (style, v) => 2 + style * SHIN.VARS + v;
+const styleText = (code) => (code === 0 ? "KEEP" : code === 1 ? "OFF" : `${SHIN.STYLE_CODES[Math.floor((code - 2) / SHIN.VARS)]} ${(code - 2) % SHIN.VARS + 1}`);
+
+/* a style variation's events as gen_styles.py writes them ("<step> <notes> <velocity> <length> [d|u]") <-> the wire's */
+const SEL_WORD = { 32: "A", 33: "B", 34: "U", 40: "^", 41: "v", 42: "~", 43: "?" };
+const selText = (sel, oct) => (SEL_WORD[sel] || (sel < 16 ? String(sel) : String(15 - sel))) + ["", "'", ",", "''"][oct];
+function eventText(e) {
+  const len = (e.len + 1) / 4;
+  return `${e.step} ${selText(e.sel, e.oct)} ${e.vel} ${len}${e.strum ? (e.strum === 1 ? " d" : " u") : ""}`;
+}
+function parseEvent(text, steps) {
+  const f = String(text).trim().split(/\s+/);
+  if (f.length < 4 || f.length > 5) throw new Error(`"${text}": <step> <notes> <velocity> <length> [d|u]`);
+  const m = /^([ABU^v~?]|-?\d+)('{0,2}|,?)$/.exec(f[1]);
+  if (!m) throw new Error(`notes "${f[1]}"`);
+  const tok = m[1], octs = m[2] === "'" ? 1 : m[2] === "," ? 2 : m[2] === "''" ? 3 : 0;
+  let sel = { A: 32, B: 33, U: 34, "^": 40, v: 41, "~": 42, "?": 43 }[tok];
+  if (sel == null) { const n = +tok; if (n >= 0 && n <= 15) sel = n; else if (n >= -8 && n <= -1) sel = 15 - n; else throw new Error(`notes "${f[1]}"`); }
+  const step = +f[0], vel = +f[2], q = Math.round(+f[3] * 4);
+  if (!Number.isInteger(step) || step < 0 || step >= steps) throw new Error(`step ${f[0]} outside 0..${steps - 1}`);
+  if (!Number.isInteger(vel) || vel < 1 || vel > 127) throw new Error("velocity 1..127");
+  if (q / 4 !== +f[3] || q < 1 || q > 64) throw new Error("length 0.25..16 steps, in quarters");
+  const strum = f[4] == null ? 0 : f[4] === "d" ? 1 : f[4] === "u" ? 2 : -1;
+  if (strum < 0) throw new Error("strum d or u");
+  if (strum && sel !== 32 && sel !== 34) throw new Error("a strum plays A or U");
+  return { step, sel, oct: octs, vel, len: q - 1, strum };
+}
+
+/* the commands' requests and replies */
+const chordBytes = (c) => [c.root, c.bass + 1, c.voicing, c.inv, c.mask & 127, c.mask >> 7 & 127, c.mask >> 14 & 127, c.mask >> 21 & 7];
+Object.assign(req, {
+  csList: (start, count) => [CMD.CS_LIST, [start, count]],
+  csGet: (set) => [CMD.CS_GET, [set]],
+  csPut: (user, set) => [CMD.CS_PUT, set ? [user, 1, ...strEnc(set.name), ...set.chords.flatMap(chordBytes)] : [user, 0]],
+  styGet: (style, v) => [CMD.STY_GET, [style, v]],
+  styPut: (k, v) => [CMD.STY_PUT, [k, ...strEnc(v ? v.name : "EMPTY"), ...(v ? [v.steps, v.rate, v.strum, v.oct, v.ev.length,
+    ...v.ev.flatMap((e) => [e.step, e.sel, e.oct, e.vel, e.len, e.strum])] : [0, 0, 0, 1, 0])]],
+  cpatGet: (id) => [CMD.CPAT_GET, [id]],
+  cpatPut: (id, p) => [CMD.CPAT_PUT, [id, ...pack7(cpatEncode(p))]],
+});
+Object.assign(parse, {
+  [CMD.CS_LIST](a) {
+    const r = new Reader(a), o = { start: r.b(), count: r.b(), factory: r.b(), user: r.b(), sets: [] };
+    for (let i = 0; i < o.count; i++) o.sets.push({ used: !!r.b(), genre: r.b(), name: r.s() });
+    return o;
+  },
+  [CMD.CS_GET](a) {
+    const r = new Reader(a), o = { set: r.b(), rc: r.b() };
+    if (o.rc) return o;
+    o.name = r.s(); o.genre = r.b(); o.chords = [];
+    for (let k = 0; k < 12; k++) {
+      const c = { root: r.b(), bass: r.b() - 1, voicing: r.b(), inv: r.b() };
+      c.mask = r.b() | r.b() << 7 | r.b() << 14 | r.b() << 21;
+      o.chords.push(c);
+    }
+    return o;
+  },
+  [CMD.CS_PUT](a) { return { user: a[0], rc: a[1] }; },
+  [CMD.STY_GET](a) {
+    const r = new Reader(a), o = { style: r.b(), v: r.b(), rc: r.b() };
+    if (o.rc) return o;
+    Object.assign(o, { name: r.s(), steps: r.b(), rate: r.b(), strum: r.b(), oct: r.b(), ev: [] });
+    const n = r.b();
+    for (let i = 0; i < n; i++) o.ev.push({ step: r.b(), sel: r.b(), oct: r.b(), vel: r.b(), len: r.b(), strum: r.b() });
+    return o;
+  },
+  [CMD.STY_PUT](a) { return { v: a[0], rc: a[1] }; },
+  [CMD.CPAT_GET](a) { return a[1] ? { id: a[0], rc: a[1] } : { id: a[0], rc: 0, pat: cpatDecode(unpack7(a.slice(2)).slice(0, SHIN.PAT_SIZE)) }; },
+  [CMD.CPAT_PUT](a) { return { id: a[0], rc: a[1] }; },
+});
+
+/* the mock device's side (makeMockDevice): a few factory sets, nine generated factory styles, the user's sets and style,
+   64 patterns; it checks what it is sent as the firmware does (editor_shin.c) */
+function shinMockState() {
+  const set = (name, genre, syms) => ({ name, genre, chords: syms.map(CHORD.fromSymbol) });
+  const factory = [
+    set("FIRST LIGHT", 0, ["C", "G/B", "Am", "F", "Dm7", "Em7", "Fmaj7", "G", "Am7", "Csus2", "Fadd9", "Gsus4"]),
+    set("WARM KEYS", 5, ["Dm9", "G13", "Cmaj9", "Am11", "Fmaj9", "E7#9", "Am9", "D9", "Gm9", "C9", "Fmaj7#11", "E7b9"]),
+    set("DEEP CLUB", 2, ["Am9", "Fmaj9", "Cmaj7", "G6", "Dm9", "Em7", "Bm7b5", "E7", "Am7/G", "Fmaj7/A", "Dm7/G", "Esus4"]),
+  ];
+  const styles = SHIN.STYLE_CODES.slice(0, SHIN.STYLES).map((code, s) => Array.from({ length: SHIN.VARS }, (_, k) => ({
+    name: `${code} ${k + 1}`, steps: s < 2 ? 4 : 16, rate: s < 2 ? 3 : k % 3 ? 3 : 2, strum: s >= 5 ? 20 : 0, oct: s === 1 ? 2 : 1,
+    ev: s < 2 ? [0, 1, 2, 3].map((i) => ({ step: i, sel: 40 + (k % 4), oct: 0, vel: i ? 84 : 112, len: 2, strum: 0 }))
+      : [0, 3, 6, 10].map((i, j) => ({ step: i, sel: s >= 5 ? 32 : j % 2 ? 34 : 32, oct: 0, vel: j ? 90 : 112, len: 2, strum: s >= 5 ? 1 + (j % 2) : 0 })),
+  })));
+  return { factory, user: Array(SHIN.USER_SETS).fill(null), styles, userStyle: Array(SHIN.VARS).fill(null),
+    pats: Array.from({ length: SHIN.PAT_N }, () => new Uint8Array(SHIN.PAT_SIZE)) };
+}
+function shinMockHandle(sh, cmd, a, b, s) {
+  const nf = sh.factory.length, all = nf + SHIN.USER_SETS, setOf = (i) => (i < nf ? sh.factory[i] : sh.user[i - nf]);
+  const chordOut = (c) => chordBytes(c).forEach(b);
+  switch (cmd) {
+    case CMD.CS_LIST: {
+      if (a.length !== 2 || !a[1] || a[1] > 16) return false;
+      const n = a[0] >= all ? 0 : Math.min(a[1], all - a[0]);
+      b(a[0]); b(n); b(nf); b(SHIN.USER_SETS);
+      for (let i = a[0]; i < a[0] + n; i++) { const x = setOf(i); b(x ? 1 : 0); b(i < nf ? x.genre : 12); s(x ? x.name : ""); }
+      return true;
+    }
+    case CMD.CS_GET: {
+      if (a.length !== 1) return false;
+      const x = a[0] < all ? setOf(a[0]) : null;
+      b(a[0]); b(a[0] >= all ? 1 : x ? 0 : 2);
+      if (x) { s(x.name); b(a[0] < nf ? x.genre : 12); x.chords.forEach(chordOut); }
+      return true;
+    }
+    case CMD.CS_PUT: {
+      b(a.length ? a[0] : 127);
+      if (a.length < 2 || a[0] >= SHIN.USER_SETS || a[1] > 1) { b(1); return true; }
+      if (!a[1]) { if (a.length !== 2) { b(1); return true; } sh.user[a[0]] = null; b(0); return true; }
+      const z = a.indexOf(0, 2), name = String.fromCharCode(...a.slice(2, z));
+      const ch = [];
+      for (let k = 0, at = z + 1; k < 12; k++, at += 8) {
+        const c = a.slice(at, at + 8);
+        if (c.length < 8 || c[0] > 11 || c[1] > 12 || c[2] > 2 || c[3] > 3 || c[7] > 7) { b(1); return true; }
+        ch.push({ root: c[0], bass: c[1] - 1, voicing: c[2], inv: c[3], mask: c[4] | c[5] << 7 | c[6] << 14 | c[7] << 21 });
+      }
+      if (!name || name.length > SHIN.NAME || a.length !== z + 1 + 96) { b(1); return true; }
+      sh.user[a[0]] = { name, genre: 12, chords: ch }; b(0);
+      return true;
+    }
+    case CMD.STY_GET: {
+      if (a.length !== 2) return false;
+      b(a[0]); b(a[1]);
+      if (a[0] > SHIN.STYLES || a[1] >= SHIN.VARS) { b(1); return true; }
+      const v = a[0] < SHIN.STYLES ? sh.styles[a[0]][a[1]] : sh.userStyle[a[1]];
+      if (!v) { b(2); return true; }
+      b(0); s(v.name); [v.steps, v.rate, v.strum, v.oct, v.ev.length].forEach(b);
+      v.ev.forEach((e) => [e.step, e.sel, e.oct, e.vel, e.len, e.strum].forEach(b));
+      return true;
+    }
+    case CMD.STY_PUT: {
+      b(a.length ? a[0] : 127);
+      const z = a.indexOf(0, 1), at = z + 1;
+      if (a.length < 3 || a[0] >= SHIN.VARS || z < 2 || z - 1 > SHIN.VNAME) { b(1); return true; }
+      const [steps, rate, strum, oct, n] = a.slice(at, at + 5), ev = [];
+      if (steps > 64 || rate > 8 || strum > 63 || oct < 1 || oct > 3 || n > SHIN.MAX_EV || (!steps && n) || a.length !== at + 5 + 6 * n) { b(1); return true; }
+      for (let i = 0; i < n; i++) {
+        const [st, sel, o, vel, len, sm] = a.slice(at + 5 + 6 * i, at + 11 + 6 * i);
+        const selOk = sel <= 23 || (sel >= 32 && sel <= 34) || (sel >= 40 && sel <= 43);
+        if (st >= steps || !selOk || o > 3 || !vel || len > 63 || sm > 2 || (sm && sel !== 32 && sel !== 34)) { b(1); return true; }
+        ev.push({ step: st, sel, oct: o, vel, len, strum: sm });
+      }
+      sh.userStyle[a[0]] = steps ? { name: String.fromCharCode(...a.slice(1, z)), steps, rate, strum, oct, ev } : null;
+      b(0);
+      return true;
+    }
+    case CMD.CPAT_GET:
+      if (a.length !== 1) return false;
+      b(a[0]);
+      if (!a[0] || a[0] > SHIN.PAT_N) { b(1); return true; }
+      b(0); pack7(sh.pats[a[0] - 1]).forEach(b);
+      return true;
+    case CMD.CPAT_PUT: {
+      b(a.length ? a[0] : 127);
+      const u = a.length > 1 ? unpack7(a.slice(1)) : new Uint8Array(0);
+      if (!a[0] || a[0] > SHIN.PAT_N || u.length !== SHIN.PAT_SIZE) { b(1); return true; }
+      const p = cpatDecode(u);
+      const bad = p.len > 64 || p.div > 9 || p.set + 1 > all || p.key + 1 > 12 || p.next > 64 || u[5] > SHIN.HANDS ||
+        p.step.some((x) => (x.chord > 13 && x.chord < 16) || x.chord >= 16 + u[5] || x.style >= 2 + (SHIN.STYLES + 1) * SHIN.VARS || x.note > 127 || x.tempo > 201);
+      if (bad) { b(1); return true; }
+      sh.pats[a[0] - 1] = u; b(0);
+      return true;
+    }
+    default:
+      return false;
+  }
+}
 /*PROTO-END*/
 
 /* ===================================================================== UI === */
