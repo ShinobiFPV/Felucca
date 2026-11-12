@@ -7,6 +7,45 @@ release notes are in its wiki. Projects that use the new features will not open 
 
 ## Unreleased
 
+### Phase 5: web editor
+
+- **On the device: user chord sets and a USER style** (`chordset.c`, `style.c`, `cpat_store.c`). 16 user chord sets
+  (USR1..USR16) after the factory ones: SET reaches them, the editor writes them. One USER style of 12 variations, after
+  the factory styles in STYLE. Both live in their own A/B flash objects (XDATA1 0xF8000 / 0xF9000 and 0xFA000 /
+  0xFB000), read at boot. A user set or variation that is empty plays nothing, as an empty factory slot does.
+- **Editor commands 90..96** (`editor_shin.c`, documented in `web/EDITOR_PROTOCOL.md`): CS_LIST, CS_GET, CS_PUT (a user
+  set, or used 0 to erase it), STY_GET, STY_PUT (a USER variation), CPAT_GET, CPAT_PUT (a chord pattern, into the
+  pattern cache and written when the sequencer is stopped). INFO carries the tag 59 01 1 so the editor knows the
+  firmware has them. Each PUT is checked as the device's own data is (a strum only on A or U, a pattern's hand chords).
+- **Backup:** ids 40..49 (the project extension, the seven pattern-bank objects, the user chord sets, the user style),
+  after id 9. `web/fm1backup.js` restores an archive with them onto upstream firmware by skipping what it refuses.
+- **Web editor (`web/editor.html`), a CHORD tab** (with ShinTech firmware; other firmware gets a hint):
+  - the selected track's CHORD settings (CHRD SET KEY CVOIC INV RNG BASS STYLE VAR CHOLD STRUM CPAT), live;
+  - **Chord sets:** every set listed; a set's 12 chords typed as chord symbols (`Am9`, `Fmaj7#11`, `Am7/G open i1`),
+    named the way the device names them; save to a user slot, copy any set (factory ones too) into one, move a user set
+    up or down, clear it, "use on the track" (SET); export and import JSON in the format of
+    `tools/shintech/chordsets` (several sets fill the user slots from the selected one on);
+  - **Styles:** any style and variation; the factory ones read-only (copy one to USER to change it). A USER variation's
+    name, rate, steps, strum and octaves, a step grid (lanes A U B 0..5 -1..-3 ^ v ~ ? across the steps: click a cell
+    to add or remove a note), the events as text (`gen_styles.py`'s "step notes velocity length [d|u]"), save, clear,
+    export and import JSON (the `tools/shintech/styles` variation format);
+  - **Patterns:** 1..64; length, division, next, its own chord set and key or the track's; a step grid with the chords'
+    names (in the pattern's key); a step's chord (rest, tie, 1..12 of the set, or a chord typed by symbol: up to 16
+    a pattern), style variation, bass note and tempo change; copy, paste and clear a step; clear, save, copy to another
+    pattern, export and import JSON; "use on the track" (CPAT).
+- **POLY6's panel** on the SOUND tab, laid out by section as a six-voice polysynth's front panel reads: LFO (RATE,
+  DELAY), DCO (WAVE, PW, PWM LFO, PWM ENV, SUB, NOISE, LFO), HPF, VCF (FREQ, RES, ENV, LFO, KYBD), VCA (VOICES, LEVEL),
+  ENV (A D S R), CHORUS (BBD). The rest of the track stays in the groups beside it; each parameter has one row.
+- **The editor's layout for this firmware** (P_COUNT 127, P_E0 119). Upstream's editor knew layouts up to 99 / 91 and
+  showed a plain list for anything newer. It now lays out the 1.2 .. 1.8 parameters (LFO SYNC / TRIG / POL, ENV SYNC,
+  QUANTIZE, SPREAD, the INSERT, ANALOG's filter TYPE, AFTERTOUCH) and the fork's (CHORD SET, STYLE, CHORD PAT) on
+  their pages.
+- **Tests:** `tests/shin_proto_test.c` (the commands on the firmware's side); `web/test_web.mjs` checks every factory
+  chord's name against the firmware's (1,200), every factory style event read and written back, the pattern record,
+  the commands against the editor's mock device, and the tab and string checks for the new tab. The tab was also run in
+  headless Chrome against the mock: sets saved and moved, a style copied to USER, edited and saved, a pattern built,
+  saved and read back, files round-tripped, POLY6's panel, both languages.
+
 ### Phase 4: POLY6
 
 - **POLY6, a six-voice-style analogue polysynth engine** (`firmware/src/eng_poly6.c`, GPL-3.0, engine 15), after DRUM in

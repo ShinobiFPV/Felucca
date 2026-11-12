@@ -135,6 +135,26 @@
   .grid button.tie { border-style: dashed; border-color: var(--fg); }
   .grid button.beat { border-left-color: var(--fg); }
   #steps tr.hl td { outline: 1px solid var(--fg); }
+  /* ShinTech CHORD tab: the sets' 12 chords, a style's lanes x steps, a pattern's steps; POLY6's panel by section */
+  #ch-setup .row { max-width: 520px; }
+  #ch-tabs { margin: 12px 0; }
+  .chsplit { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 12px; }
+  @media (max-width: 600px) { .chsplit { grid-template-columns: minmax(0, 1fr); } }
+  .chsplit select[size] { width: 100%; }
+  .chgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 12px; margin: 6px 0 12px; }
+  .chcell { display: flex; gap: 6px; align-items: center; }
+  .chcell b { width: 28px; color: var(--dim); font-weight: 400; }
+  .chcell input { flex: 1; min-width: 0; }
+  input[aria-invalid="true"] { outline: 2px solid var(--fg); }
+  .chlanes { display: grid; gap: 1px; margin: 6px 0 12px; overflow-x: auto; font-size: 10px; }
+  .chstep { background: var(--bg); color: var(--fg); border: 1px solid var(--line); padding: 0; min-width: 0; height: 18px; font-size: 10px; }
+  .chstep.beat { border-left-color: var(--fg); }
+  .chstep.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .grid button.cur { outline: 2px solid var(--fg); outline-offset: -4px; }
+  #p-chord textarea { width: 100%; box-sizing: border-box; font: inherit; }
+  .p6row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .p6sec { flex: 1 1 200px; border-top: 2px solid var(--fg); padding-top: 4px; min-width: 0; }
+  .p6sec .row > span:first-child { white-space: nowrap; }
   /* mixer: four channel strips as on the device's TRACKS page */
   .mixer { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 640px; margin: 6px 0; }
   .strip { border: 1px solid var(--line); padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
@@ -171,6 +191,7 @@
     <nav class="tabs" id="tabs" role="tablist">
       <button role="tab" data-tab="sound" data-t="sound" data-ic="symbol_audio"></button>
       <button role="tab" data-tab="fm6" data-t="tabFm6" data-ic="ui_knob"></button>
+      <button role="tab" data-tab="chord" data-t="tabChord" data-ic="note_eight"></button>
       <button role="tab" data-tab="sequencer" data-t="tabSeq" data-ic="symbol_grid"></button>
       <button role="tab" data-tab="tracks" data-t="tabTracks" data-ic="ui_slider_vertical"></button>
       <button role="tab" data-tab="library" data-t="library" data-ic="symbol_books"></button>
@@ -222,6 +243,13 @@
       <h2 data-t="fm6Ops" data-ic="function_env_adsr_exp"></h2>
       <div id="fm6ops"></div>
     </div>
+  </section>
+
+  <section class="panel" id="p-chord" data-tab="chord" data-dev hidden>
+    <div class="group" id="ch-setup"></div>
+    <p class="seg" id="ch-tabs" role="group"><button data-sub="sets" data-t="chTabSets"></button><button data-sub="styles" data-t="chTabStyles"></button><button data-sub="pats" data-t="chTabPats"></button></p>
+    <div id="ch-body"></div>
+    <input type="file" id="ch-file" accept=".json,application/json" hidden>
   </section>
 
   <section class="panel" id="p-sequencer" data-tab="sequencer" data-dev hidden>
@@ -1249,7 +1277,11 @@ async function capturePatch(rq, info, name) {
    E0 E1 of the 89-parameter firmware) */
 const TRACK_OWN = new Set([0, 39, 40, ...Array.from({ length: 16 }, (_, i) => 17 + i), 45, 46, 47, 48]);
 const P_CHORD = [81, 82];                          /* core.h P_CHRD, P_VOIC (since P_COUNT 91, P_E0 83) */
-const P_LANES = [83, 84, 85, 86, 87, 88, 89, 90];   /* core.h P_LN0..P_LN7: the DRUM lane levels (since P_COUNT 99, P_E0 91) */
+const P_LANES = [83, 84, 85, 86, 87, 88, 89, 90];
+/* ShinTech's firmware (P_COUNT 127, P_E0 119): upstream's 1.2 .. 1.8 parameters 91..105, then the fork's 106..118 (core.h) */
+const PX = { LSYNC: 91, LTRIG: 92, LPOL: 93, SQNT: 94, SPRD: 95, ITYPE: 96, IMIX: 100, FTYPE: 101, ESYNC: 102, ATSNS: 103,
+  CSET: 106, CSTY: 112, CPAT: 116, P6CHO: 117, P6MODE: 118 };
+const ids = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);   /* core.h P_LN0..P_LN7: the DRUM lane levels (since P_COUNT 99, P_E0 91) */
 const P_QNTZ = 94;                                  /* core.h P_SQNT: QUANTIZE, the track's (since P_COUNT 103, P_E0 95) */
 const trackOwn = (i, pe0) => TRACK_OWN.has(i) || (pe0 >= 83 && P_CHORD.includes(i)) || (pe0 >= 95 && i === P_QNTZ);
 /* play a patch without writing flash, as UP_LOAD would load it: the sound only. SET the engine (G_ENGSEL:
@@ -2942,6 +2974,7 @@ const TEXT = {
     badEngine: "このファームウェアにないエンジンです: ", flashFail: "書き込みに失敗しました（rc {rc}）",
     installer: "Felucca インストーラー",
     tabSeq: "シーケンサー", tabTracks: "トラック", tabSettings: "設定",
+    tabChord: "コード", chTabSets: "コードセット", chTabStyles: "スタイル", chTabPats: "パターン", chNoFw: "このファームウェアには ShinTech の CHORD 編集コマンドがありません。Felucca-Chord（ShinTech）のファームウェアに更新すると使えます。", chSetup: "選択中のトラックの CHORD", chSets: "コードセット", chEmpty: "（空）", chExportUser: "ユーザーセットを書き出す", chImport: "ファイルから読み込む", chName: "名前", chChord: "コード", chBadChord: "コードが読めません:", chCopyTo: "コピー先", chFill: "名前と 12 個のコードをすべて入力してください", chSaved: "本体に保存しました", chStop: "本体を停止してから保存してください", chRefused: "本体が受け付けませんでした", chSave: "本体に保存", chUp: "上へ", chDown: "下へ", chClear: "消去", chClearQ: "消去しますか？", chCopy: "コピー", chUseIt: "トラックで使う", chExport: "書き出す", chUsed: "トラックに設定しました:", chNothing: "書き出すユーザーセットがありません", chBadFile: "このファイルは読めません", chNoRoom: "空きが足りません", chStyle: "スタイル", chVar: "バリエーション", chRate: "レート", chSteps: "ステップ数", chStrum: "ストラム", chOct: "オクターブ", chGridHelp: "マスをクリックするとイベントを追加・削除します（ベロシティ 100、長さ 1）。細かい編集は下のイベント欄で。", chFactoryStyle: "工場出荷のスタイルは読み取り専用です。USER にコピーして編集できます。", chEvents: "イベント（テキスト）", chEventsHelp: "1 行に 1 イベント: <ステップ> <音> <ベロシティ> <長さ> [d|u]。音: A 全部、U 上声、B ベース、0..5 下から、-1..-3 上から、^ v ~ ? アルペジオ。' と , で 1 オクターブ上・下。", chApply: "適用", chBadEvent: "イベントが読めません:", chTooMany: "イベントが多すぎます（最大 32）", chCopyUser: "USER にコピー", chWhichUser: "USER のどのバリエーションに（1..12）？", chPattern: "パターン", chLen: "長さ", chDiv: "分解能", chNext: "次", chLoop: "ループ", chSetOf: "コードセット", chTracks: "トラックのもの", chKeyOf: "キー", chNote: "ベース音", chBadNote: "音名が読めません（例: C3, F#2）", chTempo: "テンポ", chHand: "手入力のコード", chStepN: "ステップ", chCopyStep: "ステップをコピー", chCopied: "コピーしました", chPasteStep: "貼り付け", chClearStep: "ステップを消去", chAddHand: "追加してこのステップに", chClearPat: "パターンを消去", chReload: "本体から読み直す", chLoadedFile: "ファイルを読み込みました（本体に保存すると反映されます）",
     needDevice: "FM-1 を接続すると編集できます。", smpNone: "このファームウェアにはユーザーサンプルのスロットがありません。",
     bankConnect: "FM-1 を接続すると本体のユーザープリセットも扱えます。", bankNone: "このファームウェアにはユーザープリセットがありません。",
     mixer: "ミキサー", mixHelp: "本体の MIXER ページと同じ 4 トラック。フェーダーはレベル。パンはどのトラックも選択を変えずに書き込みます（0.8 のファームウェアでは一瞬そのトラックを選びます）。REC は本体での録音待機の表示です。",
@@ -3045,6 +3078,7 @@ const TEXT = {
     badEngine: "This firmware has no such engine: ", flashFail: "Write failed (rc {rc})",
     installer: "Felucca installer",
     tabSeq: "Sequencer", tabTracks: "Tracks", tabSettings: "Settings",
+    tabChord: "Chord", chTabSets: "Chord sets", chTabStyles: "Styles", chTabPats: "Patterns", chNoFw: "This firmware has no ShinTech CHORD editing commands. Update to the Felucca-Chord (ShinTech) firmware to use them.", chSetup: "The selected track's CHORD", chSets: "Chord sets", chEmpty: "(empty)", chExportUser: "Export the user sets", chImport: "Import a file", chName: "Name", chChord: "Chord", chBadChord: "Can't read that chord:", chCopyTo: "Copy to", chFill: "Fill in the name and all 12 chords", chSaved: "Saved on the device", chStop: "Stop the device, then save", chRefused: "The device refused it", chSave: "Save on the device", chUp: "Up", chDown: "Down", chClear: "Clear", chClearQ: "Clear it?", chCopy: "Copy", chUseIt: "Use on the track", chExport: "Export", chUsed: "Set on the track:", chNothing: "No user sets to export", chBadFile: "Can't read this file", chNoRoom: "Not enough free slots", chStyle: "Style", chVar: "Variation", chRate: "Rate", chSteps: "Steps", chStrum: "Strum", chOct: "Octaves", chGridHelp: "Click a cell to add or remove an event (velocity 100, length 1). Fine edits in the events box below.", chFactoryStyle: "Factory styles are read-only. Copy one to USER to edit it.", chEvents: "Events (text)", chEventsHelp: "One event a line: <step> <notes> <velocity> <length> [d|u]. Notes: A all, U upper, B bass, 0..5 from the bottom, -1..-3 from the top, ^ v ~ ? arpeggio. ' or , for an octave up or down.", chApply: "Apply", chBadEvent: "Can't read that event:", chTooMany: "Too many events (32 at most)", chCopyUser: "Copy to USER", chWhichUser: "Which USER variation (1..12)?", chPattern: "Pattern", chLen: "Length", chDiv: "Division", chNext: "Next", chLoop: "Loop", chSetOf: "Chord set", chTracks: "The track's", chKeyOf: "Key", chNote: "Bass note", chBadNote: "Can't read that note (e.g. C3, F#2)", chTempo: "Tempo", chHand: "Typed chord", chStepN: "Step", chCopyStep: "Copy step", chCopied: "Copied", chPasteStep: "Paste", chClearStep: "Clear step", chAddHand: "Add it to this step", chClearPat: "Clear the pattern", chReload: "Read it from the device", chLoadedFile: "File loaded (save on the device to use it)",
     needDevice: "Connect the FM-1 to edit.", smpNone: "This firmware has no user sample slots.",
     bankConnect: "Connect the FM-1 to see its user presets too.", bankNone: "This firmware has no user presets.",
     mixer: "Mixer", mixHelp: "The four tracks of the device's MIXER page. The fader is the level. Pan is written to any track without changing the selection (firmware 0.8: by selecting it for a moment). REC shows a track armed for live recording on the device.",
@@ -3072,14 +3106,15 @@ function applyLang() {
   renderPreferences(true);
   renderPanels();
   if (dev) { renderSlots(); renderStepHead(); renderSamples(); renderTrackbar(); renderMixer(); renderSysinfo(); renderFm6(); }
+  if (dev && dev.dump && tab === "chord" && CH.dev === dev) op(chordRedraw);   /* (ShinTech: in the new language, edits kept) */
 }
 $("lang").addEventListener("click", () => { lang = lang === "ja" ? "en" : "ja"; applyLang(); });
 
 /* ---------------------------------------------------------------- tabs --- */
 /* one panel at a time; the last one is remembered (localStorage) and in the URL hash (#sound ...) */
-const TABS = ["sound", "fm6", "sequencer", "tracks", "library", "samples", "projects", "settings"];
+const TABS = ["sound", "fm6", "chord", "sequencer", "tracks", "library", "samples", "projects", "settings"];
 const TAB_KEY = "felucca-editor-tab";
-const TRACK_TABS = new Set(["sound", "sequencer", "tracks"]);
+const TRACK_TABS = new Set(["sound", "chord", "sequencer", "tracks"]);
 let tab = (() => {
   const h = location.hash.slice(1);
   if (TABS.includes(h)) return h;
@@ -3097,6 +3132,8 @@ function showTab(name) {
   renderPanels();
   if (name === "tracks" && prev !== "tracks" && hasTracks() && dev.dump) op(readMixer);
   if (name === "fm6" && prev !== "fm6" && dev && dev.dump && dev.info.fm6 && !fm6Listing) op(fm6Refresh);
+  if (prev === "chord" && name !== "chord" && dev && dev.dump) buildGroups();   /* (the SOUND tab's rows back from the CHORD tab) */
+  if (name === "chord" && prev !== "chord" && dev && dev.dump && CH.dev === dev) chSetupRows();   /* (and the CHORD tab's again) */
 }
 function renderPanels() {
   /* the Tracks tab only with a four-track firmware */
@@ -3124,6 +3161,7 @@ function renderPanels() {
   $("trackbar").hidden = !(ready && hasTracks() && TRACK_TABS.has(want));
   /* the FM6 slot names: listed once the tab shows with a device (also when it was already open at connect) */
   if (ready && want === "fm6" && dev.info.fm6 && !fm6List && !fm6Asked) { fm6Asked = true; op(fm6Refresh); }
+  if (ready && want === "chord" && CH.dev !== dev) op(chordEnter);   /* (ShinTech: read once per device) */
 }
 $("tabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-tab]"); if (b) showTab(b.dataset.tab); });
 $("tabs").addEventListener("keydown", (e) => {          /* arrow keys move between the tabs */
@@ -3183,23 +3221,26 @@ const EXPECT = { pcount: 91, gcount: 27, pe0: 83 };
 /* the same layout without the chord keys (P_COUNT 89, P_E0 81), the FM operator ENVs too (69, 61) or the matrix
    (firmware 1.0: 57, 49) */
 const knownLayout = (info) => info.gcount === EXPECT.gcount &&
-  [[99, 91], [91, 83], [89, 81], [69, 61], [57, 49]].some(([c, e]) => info.pcount === c && info.pe0 === e);
+  [[127, 119], [99, 91], [91, 83], [89, 81], [69, 61], [57, 49]].some(([c, e]) => info.pcount === c && info.pe0 === e);
 const P = { LEVEL: 0, SLEN: 29 };
 const LAYOUT = (pe0) => [
-  { t: "ENV", pages: [["ENV", 0, [1, 2, 3, 4]], ["ENV DEST", 0, [5, 6, 7, 8]]] },
-  { t: "LFO", pages: [["LFO", 0, [9, 10, 11, 12]], ["LFO DEST", 0, [13, 14, 15, 16]]] },
+  { t: "ENV", pages: [["ENV", 0, [1, 2, 3, 4]], ["ENV DEST", 0, [5, 6, 7, 8]], ...(pe0 >= 119 ? [["ENV SYNC", 0, [PX.ESYNC]]] : [])] },
+  { t: "LFO", pages: [["LFO", 0, [9, 10, 11, 12]], ["LFO DEST", 0, [13, 14, 15, 16]], ...(pe0 >= 119 ? [["LFO 2", 0, [PX.LSYNC, PX.LTRIG, PX.LPOL]]] : [])] },
   ...(pe0 >= 61 ? [{ t: "MOD", mod: 49 }] : []),   /* the matrix: P_M1SRC 49 .. P_M4AMT 60, one row per slot */
   { t: "EDIT", engine: true, pages: [["EDIT 1", 0, [pe0, pe0 + 1, pe0 + 2, pe0 + 3]], ["EDIT 2", 0, [pe0 + 4, pe0 + 5, pe0 + 6, pe0 + 7]],
-    ...(pe0 >= 91 && engName() === "DRUM" ? [["LANES", 0, P_LANES.slice(0, 4)], ["LANES 2", 0, P_LANES.slice(4)]] : [])] },   /* lane levels 83..90 */
+    ...(pe0 >= 91 && engName() === "DRUM" ? [["LANES", 0, P_LANES.slice(0, 4)], ["LANES 2", 0, P_LANES.slice(4)]] : []),   /* lane levels 83..90 */
+    ...(pe0 >= 119 && engName() === "ANALOG" ? [["FILTER", 0, [PX.FTYPE]]] : [])] },
   ...(pe0 >= 81 && engName() === "DIGITAL" ? [{ t: "OP ENV", pages: [   /* P_FM1_ATK 61: ATK DEC SUS REL LVL per operator (a
                                                     FELUCCA_FM4=1 firmware only: DIGITAL retired, its engine is "-") */
     ...[0, 1, 2, 3].map((k) => [`OP${k + 1}`, 0, [61 + 5 * k, 62 + 5 * k, 63 + 5 * k, 64 + 5 * k]]),
     ["OP LVL", 0, [65, 70, 75, 80]]] }] : []),
-  { t: "VOICE", pages: [["LEVEL", 0, [0]], ["VOICE", 0, [37, 38, 41, 42]], ["VOICE 2", 0, [43, 44, 39, 40]]] },
-  { t: "FX", pages: [["FX", 0, [33, 34, 35, 36]], ["SLICER", 0, [45, 46, 47, 48]], ["DLY", 1, [4, 5, 6, 7]], ["REVERB", 1, [24, 8, 9]], ["CHORUS", 1, [10, 11]]] },   /* G_RTYPE 24: ROOM / SPRING / HALL */
-  { t: "SCL", pages: [["SCL", 0, [25, 26, 27, 28]], ...(pe0 >= 83 ? [["CHORD", 0, P_CHORD]] : [])] },   /* CHRD VOIC 81, 82 */
+  { t: "VOICE", pages: [["LEVEL", 0, [0]], ["VOICE", 0, [37, 38, 41, 42]], ["VOICE 2", 0, [43, 44, 39, 40]],
+    ...(pe0 >= 119 ? [["SPREAD", 0, [PX.SPRD]], ["TOUCH", 0, ids(PX.ATSNS, PX.ATSNS + 2)]] : [])] },
+  { t: "FX", pages: [["FX", 0, [33, 34, 35, 36]], ["SLICER", 0, [45, 46, 47, 48]], ...(pe0 >= 119 ? [["INSERT", 0, ids(PX.ITYPE, PX.IMIX)]] : []), ["DLY", 1, [4, 5, 6, 7]], ["REVERB", 1, [24, 8, 9]], ["CHORUS", 1, [10, 11]]] },   /* G_RTYPE 24: ROOM / SPRING / HALL */
+  { t: "SCL", pages: [["SCL", 0, [25, 26, 27, 28]], ...(pe0 >= 83 ? [["CHORD", 0, P_CHORD]] : []),   /* CHRD VOIC 81, 82 */
+    ...(pe0 >= 119 ? [["CHORD SET", 0, ids(PX.CSET, PX.CSET + 5)], ["STYLE", 0, ids(PX.CSTY, PX.CSTY + 3)], ["CHORD PAT", 0, [PX.CPAT]]] : [])] },
   { t: "ARP", pages: [["ARP", 0, [17, 18, 19, 20]], ["ARP 2", 0, [21, 22, 23, 24]]] },
-  { t: "SEQ PATTERN", tab: "seqgroups", pages: [["PATTERN", 0, [29, 30, 31, 32]]] },
+  { t: "SEQ PATTERN", tab: "seqgroups", pages: [["PATTERN", 0, [29, 30, 31, 32]], ...(pe0 >= 119 ? [["REC", 0, [PX.SQNT]]] : [])] },
   /* 1.2: as the device shows them: HOME > CLOCK (BPM SWG; CLK not here), MENU > AUDIO TUNE, MENU > MIDI > MIDI IN (G_ROUTE) */
   { t: "GLOBAL", tab: "setgroups", pages: [["CLOCK", 1, [0, 1, 2]], ["AUDIO", 1, [3]], ["MIDI", 1, [14]]] },
 ];
@@ -3456,6 +3497,7 @@ function buildGroups() {
   /* Sound: the selected track's parameters; Sequencer: its pattern settings; Settings: globals */
   const groups = { groups: [], seqgroups: [], setgroups: [] };
   const { info } = dev;
+  if (engName() === "POLY6") groups.groups.push(poly6Panel(info.pe0));   /* ShinTech: first, its rows claimed (paramRow) */
   if (knownLayout(info)) {
     for (const g of LAYOUT(info.pe0)) {
       const div = el("div", { class: "group" }, el("h2", { ic: HEAD_IC[g.t], text: g.engine ? `EDIT ${info.engines[dev.dump.engine] || ""}` : g.t }));
@@ -3478,7 +3520,7 @@ function buildGroups() {
         if (g.pages.length > 1) div.append(el("h3", { ic: PAGE_IC[tt || title], text: tt || title }));
         div.append(...rows);
       }
-      groups[g.tab || "groups"].push(div);
+      if (div.children.length > 1) groups[g.tab || "groups"].push(div);   /* (not a heading alone: POLY6's panel has its EDIT rows) */
     }
   } else {
     /* unknown firmware layout: everything in id order */
@@ -3491,12 +3533,14 @@ function buildGroups() {
     groups.setgroups.push(c);
   }
   for (const [id, divs] of Object.entries(groups)) $(id).replaceChildren(...divs);
+  if (tab === "chord" && $("ch-setup")) chSetupRows();   /* (ShinTech: the CHORD tab's rows stay live) */
 }
 
 function paramRow(s, id) {
   const d = s ? dev.gdesc[id] : dev.pdesc[id];
   if (!visible(d) || (s === 1 && G_SKIP.has(d.label))) return null;
   const k = key(s, id);
+  if (ctl.has(k)) return null;                        /* (one row per parameter: POLY6's panel claims its own first) */
   let input;
   if (d.fmt === F.ENUM || d.fmt === F.NOTE || d.fmt === F.ONOFF) {
     const wave = RICH_SELECT && d.fmt === F.ENUM && /^WAVE2?$/.test(d.label);
@@ -5157,6 +5201,407 @@ function download(name, obj) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ------------------------------------------------- ShinTech CHORD tab --- */
+/* the selected track's CHORD setup (its parameters, live), then the device's chord sets (the factory ones to look at and
+   copy, the user's 16 to write), its styles (the factory ones to look at, USER's 12 variations to write: a step grid)
+   and its 64 chord patterns (a step grid with the chords' names). Firmware with the ShinTech commands only (INFO 59 01) */
+const CH = { sub: "sets", sets: null, set: 0, setData: new Map(), style: 0, v: 0, var: null, pat: 1, p: null, step: 0, clip: null };
+const CH_SETUP = ["CHRD", "SET", "KEY", "CVOIC", "INV", "RNG", "BASS", "STYLE", "VAR", "CHOLD", "STRUM", "CPAT"];
+const CH_LANES = ["A", "U", "B", "0", "1", "2", "3", "4", "5", "-1", "-2", "-3", "^", "v", "~", "?"];
+const noteName = (n) => NOTE_NAME[n % 12] + (Math.floor(n / 12) - 1);
+function noteOf(text) {
+  const m = /^([A-Ga-g])([#b]?)(-?\d)$/.exec(String(text).trim());
+  if (!m) return null;
+  const n = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1].toUpperCase()] + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0) + 12 * (+m[3] + 1);
+  return n >= 1 && n <= 127 ? n : null;
+}
+const chId = (label) => (dev ? dev.pdesc.findIndex((d, k) => d && k < dev.info.pe0 && d.label === label) : -1);
+const chNeed = () => !!dev && !!dev.info && !!dev.info.shin;
+function chSay(rc, okKey = "chSaved") { sayK(rc ? (rc === 3 ? "chStop" : "chRefused") : okKey); }
+
+async function chordEnter() {
+  if (CH.dev !== dev) { CH.dev = dev; CH.sets = null; CH.setData.clear(); }
+  if (!chNeed()) return renderChord();
+  if (!CH.sets) await chReadSets();
+  renderChord();
+  if (CH.sub === "sets") await chShowSet(CH.set);
+  else if (CH.sub === "styles") await chShowStyle();
+  else await chShowPat();
+}
+async function chReadSets() {
+  const all = [];
+  let start = 0, total = 1;
+  while (start < total) {
+    const r = parse[CMD.CS_LIST](await rq(req.csList(start, 16)));
+    total = r.factory + r.user;
+    if (!r.count) break;
+    r.sets.forEach((x, i) => all.push({ ...x, index: start + i, user: start + i >= r.factory, u: start + i - r.factory }));
+    start += r.count;
+  }
+  CH.sets = all;
+  CH.factory = all.filter((x) => !x.user).length;
+}
+async function chSet(i, force) {                     /* set i's chords (cached) */
+  if (!force && CH.setData.has(i)) return CH.setData.get(i);
+  const r = parse[CMD.CS_GET](await rq(req.csGet(i)));
+  const x = r.rc ? null : { name: r.name, genre: r.genre, chords: r.chords };
+  CH.setData.set(i, x);
+  return x;
+}
+function setLabel2(x) { return `${x.user ? "USR" + (x.u + 1) : SHIN.GENRES[x.genre]} · ${x.used ? x.name : t("chEmpty")}`; }
+
+/* the track's CHORD values: live rows (the device's knobs move them too; the SOUND tab's get them back on leaving) */
+function chSetupRows() {
+  if (!chNeed()) return $("ch-setup").replaceChildren();
+  const rows = CH_SETUP.map(chId).filter((id) => id >= 0).map((id) => { ctl.delete(key(0, id)); return paramRow(0, id); }).filter(Boolean);
+  $("ch-setup").replaceChildren(el("h2", { ic: "note_eight", text: t("chSetup") }), ...rows);
+}
+function renderChord() {
+  const box = $("ch-body");
+  if (!dev || !dev.dump) return;
+  if (!chNeed()) { box.replaceChildren(el("p", { class: "dim", text: t("chNoFw") })); $("ch-setup").replaceChildren(); return; }
+  chSetupRows();
+  for (const b of $("ch-tabs").querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.sub === CH.sub));
+  box.replaceChildren(CH.sub === "sets" ? chSetsView() : CH.sub === "styles" ? chStylesView() : chPatsView());
+}
+$("ch-tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-sub]");
+  if (!b) return;
+  CH.sub = b.dataset.sub;
+  op(chordEnter);
+});
+
+async function chordRedraw() {                       /* the open view again from what is held, nothing read */
+  renderChord();
+  if (!chNeed()) return;
+  if (CH.sub === "sets") await chShowSet(CH.set);
+  else if (CH.sub === "styles") { if (CH.var) chStyleDraw(CH.style === SHIN.STYLES, CH.stored); }
+  else if (CH.p) await chPatDraw();
+}
+
+/* ---- SETS ---- */
+function chSetsView() {
+  const list = el("select", { size: 14, "aria-label": t("chSets") });
+  for (const x of CH.sets || []) list.append(el("option", { value: x.index, text: setLabel2(x) }));
+  list.value = String(CH.set);
+  list.addEventListener("change", () => op(() => chShowSet(+list.value)));
+  return el("div", { class: "chsplit" }, el("div", {}, list,
+    el("p", { class: "bar" }, el("button", { text: t("chExportUser"), onclick: () => op(chExportUser) }),
+      el("button", { text: t("chImport"), onclick: () => $("ch-file").click() }))), el("div", { id: "ch-set" }));
+}
+async function chShowSet(i) {
+  CH.set = i;
+  const x = CH.sets[i], data = x.used ? await chSet(i) : null, user = x.user, box = $("ch-set");
+  if (!box) return;
+  const name = el("input", { value: data ? data.name : "", maxlength: SHIN.NAME, disabled: !user, "aria-label": t("chName") });
+  const cells = Array.from({ length: 12 }, (_, k) => {
+    const c = data && data.chords[k];
+    const inp = el("input", { value: c ? CHORD.symbolOf(c) : "", disabled: !user, "aria-label": `${t("chChord")} ${k + 1}` });
+    inp.addEventListener("change", () => {
+      try { if (inp.value.trim()) CHORD.parse(inp.value); inp.removeAttribute("aria-invalid"); } catch (e) { inp.setAttribute("aria-invalid", "true"); sayK("chBadChord", " " + e.message); }
+    });
+    return el("label", { class: "chcell" }, el("b", { text: NOTE_NAME[k] + "4" }), inp);
+  });
+  const target = el("select", { "aria-label": t("chCopyTo") });
+  CH.sets.filter((s) => s.user).forEach((s) => target.append(el("option", { value: s.u, text: setLabel2(s) })));
+  const read = () => {
+    const chords = cells.map((c) => c.lastChild.value.trim());
+    if (!name.value.trim() || chords.some((s) => !s)) throw new Error(t("chFill"));
+    return { name: name.value.trim().toUpperCase().slice(0, SHIN.NAME), chords: chords.map(CHORD.fromSymbol) };
+  };
+  const put = async (u, set) => {
+    const r = parse[CMD.CS_PUT](await rq(req.csPut(u, set), { timeout: 4000, retries: 0 }));
+    chSay(r.rc);
+    if (!r.rc) { CH.setData.delete(CH.factory + u); await chReadSets(); }
+    return r.rc;
+  };
+  box.replaceChildren(
+    el("h2", { text: setLabel2(x) }),
+    el("p", { class: "bar" }, el("span", { text: t("chName") }), name),
+    el("div", { class: "chgrid" }, ...cells),
+    el("p", { class: "bar" },
+      ...(user ? [el("button", { text: t("chSave"), onclick: () => op(async () => { await put(x.u, read()); renderChord(); await chShowSet(i); }) }),
+        el("button", { text: t("chUp"), disabled: x.u === 0, onclick: () => op(() => chSwap(x.u, x.u - 1)) }),
+        el("button", { text: t("chDown"), disabled: x.u === SHIN.USER_SETS - 1, onclick: () => op(() => chSwap(x.u, x.u + 1)) }),
+        el("button", { text: t("chClear"), disabled: !x.used, onclick: () => op(async () => { if (!confirm(t("chClearQ"))) return; await put(x.u, null); renderChord(); await chShowSet(i); }) })] : []),
+      el("span", { text: t("chCopyTo") }), target,
+      el("button", { text: t("chCopy"), disabled: !data, onclick: () => op(async () => { await put(+target.value, { ...data, name: data.name }); renderChord(); await chShowSet(CH.factory + +target.value); }) }),
+      el("button", { text: t("chUseIt"), onclick: () => op(() => chUse("SET", i)) }),
+      el("button", { text: t("chExport"), disabled: !data, onclick: () => download(`chordset-${data.name.toLowerCase().replace(/\W+/g, "-")}.json`, chJsonSets([data])) })));
+}
+async function chUse(label, v) {                     /* the selected track's parameter, as a knob would */
+  const id = chId(label);
+  if (id < 0) return;
+  userSet(0, id, v, true);
+  sayK("chUsed", ` ${label} ${label === "SET" ? setLabel2(CH.sets[v]) : v}`);
+}
+async function chSwap(a, b) {                        /* two user sets change places */
+  const A = await chSet(CH.factory + a, true), B = await chSet(CH.factory + b, true);
+  for (const [u, s] of [[a, B], [b, A]]) {
+    const r = parse[CMD.CS_PUT](await rq(req.csPut(u, s), { timeout: 4000, retries: 0 }));
+    if (r.rc) return chSay(r.rc);
+  }
+  CH.setData.delete(CH.factory + a); CH.setData.delete(CH.factory + b);
+  await chReadSets(); sayK("chSaved");
+  CH.set = CH.factory + b; renderChord(); await chShowSet(CH.set);
+}
+/* tools/shintech/chordsets' format: {genre, sets: [{name, chords: [symbols]}]} */
+const chJsonSets = (sets) => ({ genre: "USER", sets: sets.map((s) => ({ name: s.name, chords: s.chords.map(CHORD.symbolOf) })) });
+async function chExportUser() {
+  const sets = [];
+  for (const x of CH.sets.filter((s) => s.user && s.used)) sets.push(await chSet(x.index));
+  if (!sets.length) return sayK("chNothing");
+  download("chordsets-user.json", chJsonSets(sets));
+}
+/* a chord set file into the user's slots, from the selected one (or USR1) on */
+async function chImportSets(obj) {
+  const sets = (obj && Array.isArray(obj.sets) ? obj.sets : []).map((s) => ({
+    name: String(s.name || "").toUpperCase().slice(0, SHIN.NAME), chords: (s.chords || []).map((c) => CHORD.fromSymbol(c)) }));
+  if (!sets.length || sets.some((s) => !s.name || s.chords.length !== 12)) throw new Error(t("chBadFile"));
+  let u = CH.sets[CH.set] && CH.sets[CH.set].user ? CH.sets[CH.set].u : 0;
+  if (u + sets.length > SHIN.USER_SETS) throw new Error(t("chNoRoom"));
+  for (const s of sets) {
+    const r = parse[CMD.CS_PUT](await rq(req.csPut(u, s), { timeout: 4000, retries: 0 }));
+    if (r.rc) return chSay(r.rc);
+    CH.setData.delete(CH.factory + u++);
+  }
+  await chReadSets(); sayK("chSaved"); renderChord(); await chShowSet(CH.set);
+}
+
+/* ---- STYLES ---- */
+function chStylesView() {
+  const st = el("select", { "aria-label": t("chStyle") }), vs = el("select", { "aria-label": t("chVar") });
+  SHIN.STYLE_CODES.forEach((c, i) => st.append(el("option", { value: i, text: c })));
+  for (let k = 0; k < SHIN.VARS; k++) vs.append(el("option", { value: k, text: String(k + 1) }));
+  st.value = String(CH.style); vs.value = String(CH.v);
+  const pick = () => { CH.style = +st.value; CH.v = +vs.value; op(chShowStyle); };
+  st.addEventListener("change", pick); vs.addEventListener("change", pick);
+  return el("div", {}, el("p", { class: "bar" }, el("span", { text: t("chStyle") }), st, el("span", { text: t("chVar") }), vs,
+    el("button", { text: t("chUseIt"), onclick: () => op(async () => { await chUse("STYLE", CH.style + 1); await chUse("VAR", CH.v); }) })),
+    el("div", { id: "ch-style" }));
+}
+async function chShowStyle() {
+  const r = parse[CMD.STY_GET](await rq(req.styGet(CH.style, CH.v)));
+  const user = CH.style === SHIN.STYLES;
+  CH.var = r.rc ? { name: "NEW", steps: 16, rate: 3, strum: 0, oct: 1, ev: [] } : { name: r.name, steps: r.steps, rate: r.rate, strum: r.strum, oct: r.oct, ev: r.ev };
+  CH.stored = !r.rc;
+  if (r.rc && !user) return $("ch-style") && $("ch-style").replaceChildren(el("p", { class: "dim", text: t("chEmpty") }));
+  chStyleDraw(user, !r.rc);
+}
+function chStyleDraw(user, stored) {
+  const v = CH.var, box = $("ch-style");
+  if (!box) return;
+  const num = (label, val, min, max, set) => {
+    const i = el("input", { type: "number", min, max, value: val, disabled: !user, "aria-label": t(label) });
+    i.addEventListener("change", () => { set(Math.max(min, Math.min(max, +i.value | 0))); chStyleDraw(user, stored); });
+    return el("label", {}, el("span", { text: t(label) + " " }), i);
+  };
+  const rate = el("select", { disabled: !user, "aria-label": t("chRate") });
+  SHIN.RATES.forEach((x, i) => rate.append(el("option", { value: i, text: x })));
+  rate.value = String(v.rate);
+  rate.addEventListener("change", () => { v.rate = +rate.value; });
+  const name = el("input", { value: v.name, maxlength: SHIN.VNAME, disabled: !user, "aria-label": t("chName") });
+  name.addEventListener("change", () => { v.name = name.value.toUpperCase().slice(0, SHIN.VNAME) || "USER"; });
+  /* the step grid: a lane per kind of notes, a cell per step; a USER cell toggles an event */
+  const grid = el("div", { class: "chlanes", style: `grid-template-columns: 40px repeat(${v.steps}, minmax(14px, 1fr))` });
+  for (const lane of CH_LANES) {
+    grid.append(el("span", { class: "dim", text: lane }));
+    for (let s = 0; s < v.steps; s++) {
+      const e = v.ev.find((x) => x.step === s && selText(x.sel, 0) === lane);
+      const cell = el("button", { class: "chstep" + (e ? " on" : "") + (s % 4 ? "" : " beat"), "aria-pressed": String(!!e), disabled: !user,
+        title: e ? eventText(e) : `${s} ${lane}`, text: e ? (e.strum ? (e.strum === 1 ? "↓" : "↑") : String(Math.round(e.vel / 13))) : "" });
+      cell.addEventListener("click", () => {
+        if (e) v.ev.splice(v.ev.indexOf(e), 1);
+        else if (v.ev.length < SHIN.MAX_EV) { v.ev.push(parseEvent(`${s} ${lane} 100 1`, v.steps)); v.ev.sort((a, b) => a.step - b.step); }
+        chStyleDraw(user, stored);
+      });
+      grid.append(cell);
+    }
+  }
+  const text = el("textarea", { rows: 6, disabled: !user, "aria-label": t("chEvents"), value: v.ev.map(eventText).join("\n") });
+  text.value = v.ev.map(eventText).join("\n");
+  const apply = () => {
+    const ev = text.value.split("\n").map((x) => x.trim()).filter(Boolean).map((x) => parseEvent(x, v.steps));
+    if (ev.length > SHIN.MAX_EV) throw new Error(t("chTooMany"));
+    v.ev = ev.sort((a, b) => a.step - b.step);
+  };
+  box.replaceChildren(
+    el("p", { class: "bar" }, el("span", { text: t("chName") }), name, el("span", { text: t("chRate") }), rate,
+      num("chSteps", v.steps, 1, 64, (x) => { v.steps = x; v.ev = v.ev.filter((e) => e.step < x); }),
+      num("chStrum", v.strum, 0, 63, (x) => { v.strum = x; }), num("chOct", v.oct, 1, 3, (x) => { v.oct = x; })),
+    el("p", { class: "dim", text: t(user ? "chGridHelp" : "chFactoryStyle") }), grid,
+    el("details", {}, el("summary", { text: t("chEvents") }), el("p", { class: "dim", text: t("chEventsHelp") }), text,
+      ...(user ? [el("p", { class: "bar" }, el("button", { text: t("chApply"), onclick: () => { try { apply(); chStyleDraw(user, stored); } catch (e) { sayK("chBadEvent", " " + e.message); } } }))] : [])),
+    el("p", { class: "bar" },
+      ...(user ? [el("button", { text: t("chSave"), onclick: () => op(async () => {
+        const r = parse[CMD.STY_PUT](await rq(req.styPut(CH.v, v), { timeout: 4000, retries: 0 })); chSay(r.rc); }) }),
+      el("button", { text: t("chClear"), disabled: !stored, onclick: () => op(async () => {
+        if (!confirm(t("chClearQ"))) return;
+        const r = parse[CMD.STY_PUT](await rq(req.styPut(CH.v, null), { timeout: 4000, retries: 0 })); chSay(r.rc); await chShowStyle(); }) }),
+      el("button", { text: t("chImport"), onclick: () => $("ch-file").click() })]
+        : [el("button", { text: t("chCopyUser"), onclick: () => op(async () => {
+          const k = +prompt(t("chWhichUser"), "1") - 1;
+          if (!(k >= 0 && k < SHIN.VARS)) return;
+          const r = parse[CMD.STY_PUT](await rq(req.styPut(k, v), { timeout: 4000, retries: 0 })); chSay(r.rc);
+          if (!r.rc) { CH.style = SHIN.STYLES; CH.v = k; renderChord(); await chShowStyle(); } }) })]),
+      el("button", { text: t("chExport"), onclick: () => download(`style-${v.name.toLowerCase().replace(/\W+/g, "-")}.json`, chJsonVar(v)) })));
+}
+/* tools/shintech/styles' variation format */
+const chJsonVar = (v) => ({ name: v.name, rate: SHIN.RATES[v.rate], steps: v.steps, ...(v.oct > 1 ? { oct: v.oct } : {}), ...(v.strum ? { strum: v.strum } : {}),
+  events: v.ev.map(eventText) });
+function chVarFromJson(o) {
+  const rate = SHIN.RATES.indexOf(o.rate), steps = o.steps | 0;
+  if (rate < 0 || steps < 1 || steps > 64) throw new Error(t("chBadFile"));
+  return { name: String(o.name || "USER").toUpperCase().slice(0, SHIN.VNAME), rate, steps, strum: o.strum | 0, oct: o.oct || 1,
+    ev: (o.events || []).map((e) => parseEvent(e, steps)) };
+}
+
+/* ---- PATTERNS ---- */
+function chPatsView() {
+  const pick = el("select", { "aria-label": t("chPattern") });
+  for (let i = 1; i <= SHIN.PAT_N; i++) pick.append(el("option", { value: i, text: String(i) }));
+  pick.value = String(CH.pat);
+  pick.addEventListener("change", () => { CH.pat = +pick.value; CH.step = 0; op(chShowPat); });
+  return el("div", {}, el("p", { class: "bar" }, el("span", { text: t("chPattern") }), pick,
+    el("button", { text: t("chUseIt"), onclick: () => op(() => chUse("CPAT", CH.pat)) })), el("div", { id: "ch-pat" }));
+}
+async function chShowPat() {
+  const r = parse[CMD.CPAT_GET](await rq(req.cpatGet(CH.pat)));
+  CH.p = r.rc ? cpatEmpty() : r.pat;
+  await chPatDraw();
+}
+async function chPatSet() {                          /* the set the pattern's chords come from: its own, or the track's SET */
+  const id = chId("SET"), s = CH.p.set >= 0 ? CH.p.set : id >= 0 ? dev.dump.p[id] : 0;
+  return { s, data: await chSet(s) };
+}
+function chStepName(st, set, key) {
+  if (st.chord === 0) return "";
+  if (st.chord === 1) return "—";
+  if (st.chord >= 2 && st.chord <= 13) return set ? CHORD.nameOf(set.chords[st.chord - 2], key) : String(st.chord - 1);
+  const h = CH.p.hand[st.chord - 16];
+  return h ? CHORD.nameOf({ root: h.root, bass: -1, mask: h.mask, voicing: 0, inv: 0 }, key) : "?";
+}
+async function chPatDraw() {
+  const p = CH.p, box = $("ch-pat");
+  if (!box) return;
+  const { s, data } = await chPatSet(), keyId = chId("KEY"), key = p.key >= 0 ? p.key : keyId >= 0 ? dev.dump.p[keyId] : 0;
+  const len = p.len || 16;
+  const sel = (label, opts, val, set) => {
+    const e = el("select", { "aria-label": t(label) });
+    opts.forEach(([v, txt]) => e.append(el("option", { value: v, text: txt })));
+    e.value = String(val);
+    e.addEventListener("change", () => { set(+e.value); chPatDraw(); });
+    return el("label", {}, el("span", { text: t(label) + " " }), e);
+  };
+  const range = (n, f) => Array.from({ length: n }, (_, i) => f(i));
+  const head = el("p", { class: "bar" },
+    sel("chLen", range(64, (i) => [i + 1, String(i + 1)]), len, (v) => { p.len = v; CH.step = Math.min(CH.step, v - 1); }),
+    sel("chDiv", SHIN.DIVS.map((x, i) => [i, x]), p.div, (v) => { p.div = v; }),
+    sel("chNext", [[0, t("chLoop")], ...range(64, (i) => [i + 1, String(i + 1)])], p.next, (v) => { p.next = v; }),
+    sel("chSetOf", [[-1, t("chTracks")], ...(CH.sets || []).filter((x) => x.used).map((x) => [x.index, setLabel2(x)])], p.set, (v) => { p.set = v; }),
+    sel("chKeyOf", [[-1, t("chTracks")], ...NOTE_NAME.map((n, i) => [i, n])], p.key, (v) => { p.key = v; }));
+  const grid = el("div", { class: "grid" });
+  for (let i = 0; i < len; i++) {
+    const st = p.step[i], nm = chStepName(st, data, key);
+    const marks = (st.style ? "•" : "") + (st.note ? "♪" : "") + (st.tempo ? "♩" : "");
+    grid.append(el("button", { class: (i === CH.step ? "cur" : "") + (st.chord > 1 ? " on" : st.chord === 1 ? " tie" : "") + (i % 4 ? "" : " beat"), title: `${i + 1}`,
+      onclick: () => { CH.step = i; chPatDraw(); } }, el("span", { class: "n", text: `${i + 1} ${marks}` }), el("span", { class: "x", text: nm || " " })));
+  }
+  const st = p.step[CH.step];
+  const chordOpts = [[0, "REST"], [1, "TIE"], ...range(12, (k) => [k + 2, `${k + 1}: ${data ? CHORD.nameOf(data.chords[k], key) : ""}`]),
+    ...p.hand.map((h, k) => [16 + k, `H${k + 1}: ${CHORD.nameOf({ root: h.root, bass: -1, mask: h.mask, voicing: 0, inv: 0 }, key)}`])];
+  const styleOpts = [[0, "KEEP"], [1, "OFF"], ...range((SHIN.STYLES + 1) * SHIN.VARS, (c) => [c + 2, styleText(c + 2)])];
+  const note = el("input", { value: st.note ? noteName(st.note) : "", size: 4, "aria-label": t("chNote") });
+  note.addEventListener("change", () => { const n = note.value.trim() ? noteOf(note.value) : 0; if (n == null) return sayK("chBadNote"); st.note = n; chPatDraw(); });
+  const tempo = el("input", { type: "number", min: 0, max: 240, value: st.tempo ? 39 + st.tempo : 0, "aria-label": t("chTempo") });
+  tempo.addEventListener("change", () => { const b = +tempo.value | 0; st.tempo = b >= 40 && b <= 240 ? b - 39 : 0; chPatDraw(); });
+  const hand = el("input", { placeholder: "Dm7", size: 8, "aria-label": t("chHand") });
+  const stepBox = el("div", { class: "group" }, el("h3", { text: `${t("chStepN")} ${CH.step + 1}` }),
+    el("p", { class: "bar" }, sel("chChord", chordOpts, st.chord, (v) => { st.chord = v; }), sel("chStyle", styleOpts, st.style, (v) => { st.style = v; }),
+      el("label", {}, el("span", { text: t("chNote") + " " }), note), el("label", {}, el("span", { text: t("chTempo") + " " }), tempo)),
+    el("p", { class: "bar" },
+      el("button", { text: t("chCopyStep"), onclick: () => { CH.clip = { ...st, hand: st.chord >= 16 ? p.hand[st.chord - 16] : null }; sayK("chCopied"); } }),
+      el("button", { text: t("chPasteStep"), disabled: !CH.clip, onclick: () => {
+        const c = { ...CH.clip };
+        if (c.hand) {
+          let k = p.hand.findIndex((h) => h.root === c.hand.root && h.mask === c.hand.mask);
+          if (k < 0) { if (p.hand.length >= SHIN.HANDS) return sayK("chNoRoom"); p.hand.push(c.hand); k = p.hand.length - 1; }
+          c.chord = 16 + k;
+        }
+        delete c.hand; p.step[CH.step] = c; CH.step = Math.min(CH.step + 1, len - 1); chPatDraw(); } }),
+      el("button", { text: t("chClearStep"), onclick: () => { p.step[CH.step] = { chord: 0, style: 0, note: 0, tempo: 0 }; chPatDraw(); } })),
+    el("p", { class: "bar" }, el("span", { text: t("chHand") }), hand, el("button", { text: t("chAddHand"), onclick: () => {
+      try {
+        const c = CHORD.fromSymbol(hand.value);
+        if (p.hand.length >= SHIN.HANDS) return sayK("chNoRoom");
+        p.hand.push({ root: c.root, mask: c.mask }); st.chord = 16 + p.hand.length - 1; chPatDraw();
+      } catch (e) { sayK("chBadChord", " " + e.message); } } })));
+  const copyTo = el("input", { type: "number", min: 1, max: 64, value: CH.pat === 64 ? 1 : CH.pat + 1, "aria-label": t("chCopyTo") });
+  const put = async (n, pat) => { const r = parse[CMD.CPAT_PUT](await rq(req.cpatPut(n, pat), { timeout: 4000, retries: 0 })); chSay(r.rc); return r.rc; };
+  box.replaceChildren(head, el("p", { class: "dim", text: `${t("chSetOf")}: ${CH.sets && CH.sets[s] ? setLabel2(CH.sets[s]) : s}` }), grid, stepBox,
+    el("p", { class: "bar" },
+      el("button", { text: t("chSave"), onclick: () => op(() => put(CH.pat, p)) }),
+      el("button", { text: t("chClearPat"), onclick: () => { if (confirm(t("chClearQ"))) { CH.p = cpatEmpty(); CH.step = 0; chPatDraw(); } } }),
+      el("button", { text: t("chReload"), onclick: () => op(chShowPat) }),
+      el("span", { text: t("chCopyTo") }), copyTo,
+      el("button", { text: t("chCopy"), onclick: () => op(() => put(+copyTo.value, p)) }),
+      el("button", { text: t("chExport"), onclick: () => download(`pattern-${CH.pat}.json`, chJsonPat(p)) }),
+      el("button", { text: t("chImport"), onclick: () => $("ch-file").click() })));
+}
+/* a pattern as words: its hand chords as symbols, a step's chord as REST / TIE / 1..12 / H1.., its style, note and tempo */
+const chJsonPat = (p) => ({ format: "shintech-chord-pattern", version: 1, len: p.len || 16, div: SHIN.DIVS[p.div], next: p.next, set: p.set, key: p.key,
+  hands: p.hand.map((h) => CHORD.symbolOf({ root: h.root, bass: -1, mask: h.mask, voicing: 0, inv: 0 })),
+  steps: p.step.slice(0, p.len || 16).map((s) => ({ chord: s.chord === 0 ? "REST" : s.chord === 1 ? "TIE" : s.chord < 16 ? String(s.chord - 1) : "H" + (s.chord - 15),
+    style: styleText(s.style), ...(s.note ? { note: noteName(s.note) } : {}), ...(s.tempo ? { tempo: 39 + s.tempo } : {}) })) });
+function chPatFromJson(o) {
+  if (!o || o.format !== "shintech-chord-pattern") throw new Error(t("chBadFile"));
+  const p = cpatEmpty();
+  p.len = Math.max(1, Math.min(64, o.len | 0)); p.div = Math.max(0, SHIN.DIVS.indexOf(o.div)); p.next = o.next | 0;
+  p.set = o.set == null ? -1 : o.set; p.key = o.key == null ? -1 : o.key;
+  p.hand = (o.hands || []).slice(0, SHIN.HANDS).map((h) => { const c = CHORD.fromSymbol(h); return { root: c.root, mask: c.mask }; });
+  (o.steps || []).slice(0, 64).forEach((s, i) => {
+    const c = String(s.chord), st = String(s.style || "KEEP").split(" ");
+    p.step[i].chord = c === "REST" ? 0 : c === "TIE" ? 1 : c[0] === "H" ? 15 + +c.slice(1) : 1 + +c;
+    p.step[i].style = st[0] === "KEEP" ? 0 : st[0] === "OFF" ? 1 : styleCode(SHIN.STYLE_CODES.indexOf(st[0]), +st[1] - 1);
+    p.step[i].note = s.note ? noteOf(s.note) || 0 : 0;
+    p.step[i].tempo = s.tempo >= 40 && s.tempo <= 240 ? s.tempo - 39 : 0;
+  });
+  return p;
+}
+/* one file input for the three: a chord set file, a style variation, a pattern */
+$("ch-file").addEventListener("change", () => {
+  const f = $("ch-file").files[0];
+  $("ch-file").value = "";
+  if (!f) return;
+  op(async () => {
+    const o = JSON.parse(await f.text());
+    if (CH.sub === "sets") await chImportSets(o);
+    else if (CH.sub === "styles") { CH.var = chVarFromJson(o); chStyleDraw(true, false); sayK("chLoadedFile"); }
+    else { CH.p = chPatFromJson(o); CH.step = 0; await chPatDraw(); sayK("chLoadedFile"); }
+  });
+});
+
+/* ------------------------------------------------- POLY6's panel (SOUND) --- */
+/* a POLY6 track's sound laid out by section, as a six-voice polysynth's front panel reads: LFO, DCO, HPF, VCF, VCA,
+   ENV, CHORUS; the same parameters as the device's pages (eng_poly6.c). The rest stays in the groups below */
+function poly6Panel(pe0) {
+  const sec = (title, rows) => {
+    const r = rows.filter(([id]) => id >= 0).map(([id, name]) => {
+      const row = paramRow(0, id);
+      if (row && name) row.firstChild.textContent = name;
+      return row;
+    }).filter(Boolean);
+    return r.length ? el("div", { class: "p6sec" }, el("h3", { text: title }), ...r) : null;
+  };
+  return el("div", { class: "group p6" }, el("h2", { ic: "ui_knob", text: "POLY6" }), el("div", { class: "p6row" },
+    ...[sec("LFO", [[9, "RATE"], [12, "DELAY"]]),
+      sec("DCO", [[pe0, "WAVE"], [pe0 + 1, "PW"], [15, "PWM LFO"], [7, "PWM ENV"], [pe0 + 2, "SUB"], [pe0 + 3, "NOISE"], [13, "LFO"]]),
+      sec("HPF", [[pe0 + 7, "HPF"]]),
+      sec("VCF", [[pe0 + 4, "FREQ"], [pe0 + 5, "RES"], [5, "ENV"], [14, "LFO"], [pe0 + 6, "KYBD"]]),
+      sec("VCA", [[chId("VOX"), "VOICES"], [0, "LEVEL"]]), sec("ENV", [[1, "A"], [2, "D"], [3, "S"], [4, "R"]]),
+      sec("CHORUS", [[chId("BBD"), "BBD"]])].filter(Boolean)));
 }
 const fileSlug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "patch";
 const today = () => new Date().toISOString().slice(0, 10);

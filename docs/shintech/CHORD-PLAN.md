@@ -191,3 +191,9 @@ older format still load (new parameters at defaults: CHORD off, which plays as b
 reads the XDATA objects; the flash copy is left alone until saved over. User presets: `UP_VER` 4 → 6 (5 is taken by
 the grid variant), older ones still read. A project extension whose tag doesn't match its project is ignored
 (defaults), so a power cut between the two commits loses only the CHORD settings of that save, never the project.
+
+**As built (Phase 5).** User chord sets (16) and the USER style (12 variations) are two more A/B objects in XDATA1
+(0xF8000 / 0xF9000, 0xFA000 / 0xFB000), written only by the editor (commands 90..96, `firmware/src/editor_shin.c`) and
+read at boot (`user_boot` in `cpat_store.c`). The editor is the firmware repo's `web/editor.html`: a CHORD tab (the
+track's CHORD settings, then chord sets, styles and patterns) and POLY6's panel on the SOUND tab. The device keeps the
+data; the editor holds nothing between visits but what it exports to JSON.
