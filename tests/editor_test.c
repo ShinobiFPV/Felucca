@@ -170,8 +170,8 @@ static int preferences(void)
     int bad = 0;
     uint8_t a[4] = {0, 7, 0, 0};
     reset();
-    uint32_t n = request(ED_INFO, a, 0);
-    uint32_t e = n - 6u;                                  /* (1.5.5: 4B 01 NCOND, 1.6: 45 01 5 last, below) */
+    uint32_t n = request(ED_INFO, a, 0) - 3u;             /* (ShinTech: 59 01 1 after CUSTOM's, last: below) */
+    uint32_t e = n - 6u;                                  /* (1.5.5: 4B 01 NCOND, 1.6: 45 01 5, below) */
     bad += check("INFO explicitly tags display capabilities after SONG without changing command 33",
         ED_SONG == 33 && ED_UI_STATE == 34 && ED_FAV_SET == 38 &&
         host_wire[e - 47] == CHAIN_ROWS && host_wire[e - 46] == 0x55 &&
@@ -193,8 +193,9 @@ static int preferences(void)
         host_wire[e - 4] == 0x43 && host_wire[e - 3] == 1 && host_wire[e - 2] == ML_N);   /* 1.5: MIDI LEARN */
     bad += check("INFO 1.5.5: 4B 01 11, a step's condition after its nudge",
         host_wire[n - 7] == 0x4B && host_wire[n - 6] == 1 && host_wire[n - 5] == NCOND);
-    bad += check("INFO 1.6: 45 01 5, CUSTOM's colours, last",
-        host_wire[n - 4] == 0x45 && host_wire[n - 3] == 1 && host_wire[n - 2] == 5);
+    bad += check("INFO 1.6: 45 01 5, CUSTOM's colours; ShinTech's 59 01 1 (cmds 90..96, backup ids 40..49) last",
+        host_wire[n - 4] == 0x45 && host_wire[n - 3] == 1 && host_wire[n - 2] == 5 && host_wire[n - 1] == 0x59 &&
+        host_wire[n] == 1 && host_wire[n + 1] == 1 && host_wire[n + 2] == 0xF7);
     request(ED_UI_SET, a, 2);
     bad += check("UI_SET updates the actual palette and reports RAM-only saving",
         host_wire[5] == 3 && settings.palette == 7 && T_BG == UI_PALETTES[7].c1);

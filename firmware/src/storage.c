@@ -31,11 +31,13 @@
  * ShinTech: the project extension (OBJ_PROJEXT, proj_ext.c): A 0xE8000, B 0xE9000, the two sectors above the voice bank in
  * felucca-bsp's FL_XDATA1, its payload at most PX_SIZE (3584: it ends before 0xF00, which the update loader reads).
  * ShinTech: the chord pattern bank (OBJ_CPAT0.., cpat_store.c), seven objects above it: A 0xEA000 + 8 KiB each, B 4 KiB
- * above (0xEA000..0xF7FFF), each payload 3,284 bytes. */
+ * above (0xEA000..0xF7FFF), each payload 3,284 bytes; the user's chord sets (OBJ_UCSET) A 0xF8000, B 0xF9000 and the user's
+ * style (OBJ_USTY) A 0xFA000, B 0xFB000 (cpat_store.c), the last of FL_XDATA1 below the settings. */
 enum { OBJ_SETTINGS, OBJ_PROJECT0, OBJ_UPRESET0 = OBJ_PROJECT0 + 4, OBJ_FM6BANK = OBJ_UPRESET0 + 2, OBJ_UPFM6,
-       OBJ_AUTOSAVE, OBJ_PROJEXT, OBJ_CPAT0, OBJ_COUNT = OBJ_CPAT0 + 7 };   /* OBJ_PROJEXT, OBJ_CPAT0..: ShinTech, the
-                                                                             * project extension (proj_ext.c), the chord
-                                                                             * pattern bank (cpat_store.c) */
+       OBJ_AUTOSAVE, OBJ_PROJEXT, OBJ_CPAT0, OBJ_UCSET = OBJ_CPAT0 + 7, OBJ_USTY, OBJ_COUNT };   /* OBJ_PROJEXT .. OBJ_USTY:
+                                                                             * ShinTech, the project extension (proj_ext.c),
+                                                                             * the chord pattern bank, the user's chord sets
+                                                                             * and style (cpat_store.c) */
 #define OBJ_FM6VB 32u                          /* the voice bank's commit records (fm6_vbank.c; >= OBJ_COUNT: st_load
                                                 * never takes one, no object here takes its sectors) */
 
@@ -77,6 +79,8 @@ static uint32_t st_sector(uint32_t obj, uint32_t copy)  /* flash offset of copy 
         return 0xE5000u + copy * ST_SECTOR;
     if (obj == OBJ_PROJEXT)
         return 0xE8000u + copy * ST_SECTOR;
+    if (obj == OBJ_UCSET || obj == OBJ_USTY)
+        return 0xF8000u + (obj - OBJ_UCSET) * 2u * ST_SECTOR + copy * ST_SECTOR;
     if (obj >= OBJ_CPAT0)
         return 0xEA000u + (obj - OBJ_CPAT0) * 2u * ST_SECTOR + copy * ST_SECTOR;
     if (obj >= OBJ_UPRESET0)

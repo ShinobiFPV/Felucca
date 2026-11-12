@@ -146,12 +146,13 @@ int main(void)
     /* ShinTech: the chord pattern bank (cpat_store.c): seven objects A / B in 0xEA000..0xF7FFF, each its own two sectors,
      * apart from every other object; a save of one touches nothing else, and its payload (3284) leaves 0xF00.. erased */
     {
-        uint32_t o, c, j, ok = OBJ_CPAT0 + 7u == OBJ_COUNT;
+        uint32_t o, c, j, ok = OBJ_CPAT0 + 7u == OBJ_UCSET && OBJ_USTY + 1u == OBJ_COUNT;
         static uint8_t snap[0x100000], cp_a[3284], cp_got[3284];
         for (o = OBJ_CPAT0; o < OBJ_COUNT; o++)
             for (c = 0; c < 2u; c++) {
                 uint32_t s = st_sector(o, c);
-                ok &= s >= 0xEA000u && s + 4096u <= 0xF8000u;
+                ok &= o < OBJ_UCSET ? s >= 0xEA000u && s + 4096u <= 0xF8000u   /* (the bank; the user's sets and style */
+                                    : s >= 0xF8000u && s + 4096u <= 0xFC000u;  /* above it, below the settings) */
                 for (j = 0; j < OBJ_COUNT; j++)
                     if (j != o)
                         ok &= st_sector(j, 0) != s && st_sector(j, 1) != s;
@@ -169,7 +170,7 @@ int main(void)
                 ok &= !memcmp(snap + o, nor + o, 4096u);
         for (o = 0xF00u; o < 0xF08u; o++)
             ok &= nor[st_sector(OBJ_CPAT0 + 3u, 0) + o] == 0xFFu && nor[st_sector(OBJ_CPAT0 + 3u, 1) + o] == 0xFFu;
-        bad += check("ShinTech: the chord pattern bank, 7 objects in 0xEA000..0xF7FFF, a save touches its own, 0xF00.. erased", ok);
+        bad += check("ShinTech: the chord pattern bank, 7 objects in 0xEA000..0xF7FFF (the user's sets, style above), a save touches its own", ok);
     }
     {
         static uint8_t bank[3472], back[3728], tab[3728];

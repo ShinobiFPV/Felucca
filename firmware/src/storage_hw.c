@@ -34,7 +34,7 @@ static void audio_silence(void)                 /* IRQs off: the DMA would loop 
 #define ST_PX_HI 0x000EA000u
 /* .. and the chord pattern bank (OBJ_CPAT0..), the fourteen sectors above it */
 #define ST_CP_LO 0x000EA000u
-#define ST_CP_HI 0x000F8000u
+#define ST_CP_HI 0x000FC000u     /* (and the user's chord sets and style, 0xF8000..0xFBFFF: cpat_store.c) */
 #define ST_OK(off, n) (FL_STORE_OK(off, n) || FL_IN(off, n, ST_VBANK_LO, ST_VBANK_HI) || FL_IN(off, n, ST_PX_LO, ST_PX_HI) || \
                        FL_IN(off, n, ST_CP_LO, ST_CP_HI))
 static int st_erase(uint32_t off)

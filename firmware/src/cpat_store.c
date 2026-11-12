@@ -70,6 +70,33 @@ static int cp_write(uint32_t id, const cpat_t *src)
 static int cp_quiet(void) { return !song.playing && !chain_busy(); }
 #endif
 
+/* ShinTech Phase 5: the user's chord sets (chordset.c cs_user) and style (style.c sty_user), whole objects in flash,
+ * a RAM copy the audio side reads. Power-on: read (none or damaged in both copies: empty). A write (the editor's,
+ * editor_shin.c, after it stopped the transport): the new copy, its commit record last (storage.c st_save) */
+_Static_assert(sizeof(cs_user_t) <= 3584u && sizeof(sty_user_t) <= 3584u, "a user store ends before 0xF00");
+static void user_boot(void)
+{
+#if FELUCCA_FLASH
+    if (!flash_ok || st_load(OBJ_UCSET, &cs_user, sizeof cs_user) != (int)sizeof cs_user || cs_user.magic != CS_USER_MAGIC)
+        memset(&cs_user, 0, sizeof cs_user);
+    if (!flash_ok || st_load(OBJ_USTY, &sty_user, sizeof sty_user) != (int)sizeof sty_user || sty_user.magic != STY_USER_MAGIC)
+        memset(&sty_user, 0, sizeof sty_user);
+#endif
+    cs_user.magic = CS_USER_MAGIC;
+    sty_user.magic = STY_USER_MAGIC;
+}
+static int user_save(uint32_t obj)            /* 0 written (no flash: kept in RAM) */
+{
+#if FELUCCA_FLASH
+    if (!flash_ok)
+        return -1;
+    return obj == OBJ_UCSET ? st_save(OBJ_UCSET, &cs_user, sizeof cs_user) : st_save(OBJ_USTY, &sty_user, sizeof sty_user);
+#else
+    (void)obj;
+    return 0;
+#endif
+}
+
 /* the patterns wanted in the cache, a bit each (bit id - 1) */
 static uint64_t cp_wanted(void)
 {

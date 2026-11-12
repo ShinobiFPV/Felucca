@@ -897,6 +897,7 @@ static int px_commit(const project_t *q)
 }
 
 #if FELUCCA_FLASH
+static void user_boot(void);                 /* (ShinTech: cpat_store.c, the user's chord sets and style) */
 static void px_boot(void)                    /* power-on, before the slots are read (persist_boot) */
 {
     int n = st_load(OBJ_PROJEXT, &px, sizeof px);
@@ -1283,6 +1284,7 @@ static void persist_boot(void)                    /* before settings_init / pane
             persist_saved = p;
     }
     px_boot();                                     /* (ShinTech: before the projects, which name its records) */
+    user_boot();                                   /* (ShinTech: the user's chord sets and style) */
     {   /* projects: fill empty RAM slots from flash, so the slot list is right after power-on */
         uint32_t i;
         for (i = 0; i < 4u; i++)

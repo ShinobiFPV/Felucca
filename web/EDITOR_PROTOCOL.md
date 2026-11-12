@@ -1273,3 +1273,44 @@ device gone at ~0.3 s, the MIDI port gone at ~0.57 s and back at ~1.15 s; ON -> 
 at ~0.6 s while the MIDI port was not seen to disappear at all (so do not wait for a disconnect event: after
 a real change, wait ~1.5 s and open again). What the editor sends in that window is lost, `WATCH` ends with the
 bus reset (send `INFO` and `WATCH` again after reconnecting), and a backup in progress answers rc 5 (stale).
+
+## ShinTech: chord sets, styles, chord patterns (90-96)
+
+The ShinTech CHORD fork's data for its web editor. INFO advertises `59 01 1` (last); firmware without it does not answer
+90..96. Sets, styles and patterns are the device's (one set of them for the whole device, as user presets), not a
+project's.
+
+- **A set index** 0..115: the 100 factory chord sets (read only), then the user's 16 (USR1..USR16, SET's last values).
+- **A chord**, 8 bytes: root 0..11; bass 0 (none) or 1 + its pitch class; voicing 0 CLOSE, 1 OPEN, 2 SPREAD (the
+  chord's own, for VOICING AUTO); inversion 0..3 (the chord's own, for INVERSION AUTO's first chord); then the notes
+  above the root as a 24-bit mask in four 7-bit bytes, LSB first (bit i − 1: a note i semitones above the root, 1..24;
+  the device plays the root and the lowest five of them).
+- **A style** 0..9: 0..8 the factory ones (ARP1 .. STRM4, read only), 9 USER (the STYLE knob's last value, 10); a
+  variation 0..11. **An event**, 6 bytes: step (0 .. steps − 1), notes (0..15 the n-th from the bottom, 16..23 the
+  (n − 15)-th from the top, 32 all, 33 the bass, 34 all but the bass, 40 UP, 41 DOWN, 42 UP/DOWN, 43 RANDOM: the arp's
+  next), octave (0, 1 up, 2 down, 3 two up), velocity 1..127, length in quarter steps − 1 (0..63), strum (0 none,
+  1 down, 2 up; only on notes 32 or 34). A variation: name (1..10 printable bytes), steps 1..64, rate (0 1/2, 1 1/4,
+  2 1/8, 3 1/16, 4 1/32, 5 4T, 6 8T, 7 16T, 8 32T), strum 0..63 ms between a strum's notes, octaves 1..3 (the arp's
+  span), its events (at most 32).
+- **A chord pattern** 1..64: the 328-byte record of `firmware/src/cpat.c` (`cpat_t`), pack7: len, div (N_DIV),
+  set + 1 (0 the track's), key + 1, next (0 itself again, else 1..64), the number of hand chords, 2 reserved; 16 hand
+  chords (root, a 24-bit mask of the notes above it as three bytes, LSB first); 64 steps (chord: 0 REST, 1 TIE, 2..13
+  the set's 1..12, 16..31 hand chord 1..16; style: 0 KEEP, 1 OFF, 2 + style × 12 + variation (style 0..9); note 0
+  none or 1..127; tempo 0 KEEP or BPM − 39, 1..201).
+
+| cmd | Request args | Reply args |
+| --- | --- | --- |
+| 90 CS_LIST | start, count 1..16 | start, count (fewer past the end), 100, 16, then per set: used (0/1), genre (0..11; 12 the user's), name string ("" unused) |
+| 91 CS_GET | set | set, rc (0 ok, 1 no such index, 2 an unused user set), then (rc 0) name string, genre, 12 × chord |
+| 92 CS_PUT | user 0..15, used (0 erases it), then (used 1) name string, 12 × chord | user, rc (0 ok, 1 arguments, 2 flash, 3 the transport did not stop). Writes flash: it stops the transport, allow 1 s |
+| 93 STY_GET | style, variation | style, variation, rc (0 ok, 1 no such, 2 USER's none stored), then (rc 0) name string, steps, rate, strum, octaves, count, count × event |
+| 94 STY_PUT | variation 0..11 (USER's), name string, steps (0: erased, then count 0), rate, strum, octaves, count, count × event | variation, rc (as CS_PUT). A refused one (any value out of its range, a step past steps, a strum on a single note) changes nothing |
+| 95 CPAT_GET | pattern | pattern, rc (0 ok, 1 no such), then (rc 0) the 328 bytes pack7 |
+| 96 CPAT_PUT | pattern, the 328 bytes pack7 | pattern, rc (0 ok, 1 arguments: a size, or a value out of its range, e.g. a hand chord past their count; 2 no room in the device's pattern cache). Heard at once by a track playing it; written to flash at once when stopped, else when the music is quiet |
+
+**Backup (65-67):** this firmware lists 23 objects: ids 0..9, then 40 (the project extension: the CHORD and POLY6
+values of the stored projects and the autosave, FUNB), 41..47 (the chord pattern bank: "CPT1" and ten 328-byte
+patterns each, 3284 bytes; the last holds 61..64 and six empty ones), 48 (the user's chord sets), 49 (the user's
+style), then the sample slots 32..34. A restore validates each as the device does (a pattern any player could play, the
+records' digests) before it writes. An archive of 23 objects restored to firmware without them: ids 40..49 are refused
+at begin (rc 1) and skipped.

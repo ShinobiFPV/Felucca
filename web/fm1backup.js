@@ -6,7 +6,11 @@
 export const BACKUP_IDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 32, 33, 34];
 const BACKUP_IDS_V2 = BACKUP_IDS.filter((id) => id !== 9);              // 1.0..1.0.2, and their archives
 const BACKUP_IDS_V1 = BACKUP_IDS_V2.filter((id) => id !== 8);           // firmware before FM6, and its archives
-const idsOf = (n) => [BACKUP_IDS, BACKUP_IDS_V2, BACKUP_IDS_V1].find((ids) => ids.length === n) || null;
+// ShinTech's firmware (the CHORD fork): 40 the project extension, 41..47 the chord pattern bank, 48 the user's chord sets,
+// 49 the user's style, after id 9 (INFO 59 01)
+export const BACKUP_IDS_SHIN = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 32, 33, 34];
+const idsOf = (n) => [BACKUP_IDS_SHIN, BACKUP_IDS, BACKUP_IDS_V2, BACKUP_IDS_V1].find((ids) => ids.length === n) || null;
+const isSmp = (id) => id >= 32 && id < 40;                             // a user sample slot (the rest: <= 3840 bytes)
 export const BACKUP_CMD = { LIST: 65, GET: 66, PUT: 67 };
 const BACKUP_CHUNK = 256;
 export const bkU32 = (n) => Array.from({ length: 5 }, (_, i) => (n >>> (i * 7)) & (i === 4 ? 15 : 127));
@@ -55,7 +59,7 @@ export function bkManifest(a) {
     const p = 3 + i * 11;
     if (a[p] !== id) throw new Error("Unexpected archive object");
     const size = bkR32(a, p + 1), crc = bkR32(a, p + 6);
-    if (size > (id >= 32 ? 81920 : 3840) || (!size && crc)) throw new Error("Archive object too large");
+    if (size > (isSmp(id) ? 81920 : 3840) || (!size && crc)) throw new Error("Archive object too large");
     return { id, size, crc };
   });
 }
@@ -66,13 +70,13 @@ export function readBackup(file) {
   if (!file || file.format !== "felucca-backup" || file.version !== 1 || !ids)
     throw new Error("Not a complete Felucca backup");
   const objects = file.objects.map((o, i) => {
-    if (!o || o.id !== ids[i] || !Number.isInteger(o.size) || o.size < 0 || o.size > (o.id >= 32 ? 81920 : 3840) ||
+    if (!o || o.id !== ids[i] || !Number.isInteger(o.size) || o.size < 0 || o.size > (isSmp(o.id) ? 81920 : 3840) ||
         !Number.isInteger(o.crc) || o.crc < 0 || o.crc > 0xffffffff || typeof o.data !== "string" ||
         o.data.length !== 4 * Math.ceil(o.size / 3) || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(o.data))
       throw new Error("Invalid backup object");
     const bytes = Uint8Array.from(atob(o.data), (c) => c.charCodeAt(0));
     if (bytes.length !== o.size || bkCrc(bytes) !== o.crc) throw new Error("Backup checksum mismatch");
-    if (o.id >= 32 && o.size) {
+    if (isSmp(o.id) && o.size) {
       if (o.size < 512) throw new Error("Short sample backup");
       const view = new DataView(bytes.buffer), length = view.getUint32(16, true), count = bytes[6];
       if (view.getUint32(0, true) !== 0x504d5346 || view.getUint16(4, true) !== 1 || !count || count > 16 ||
@@ -115,7 +119,7 @@ export async function restoreBackup(request, file, onProgress = () => {}) {
   const put = async (args) => { const a = await ask([BACKUP_CMD.PUT, args]); bkCheck(a[2]); return a; };
   // Restore live music last. Other objects commit individually; a disconnect can leave a partial restore.
   for (const o of [...archive.objects.slice(2), archive.objects[1], archive.objects[0]]) {
-    if (o.id >= 32) {
+    if (isSmp(o.id)) {
       const slot = o.id - 32;
       const check = (a) => { if (a[0] !== slot) throw new Error("Unexpected sample reply"); bkCheck(a.at(-1)); };
       if (!o.size) check(await ask([14, [slot]]));
@@ -131,7 +135,8 @@ export async function restoreBackup(request, file, onProgress = () => {}) {
         done += 512; onProgress(done, total);
       }
     } else {
-      if (o.id === 9) {                    // firmware before 1.0.3 does not take id 9 (rc 1 at begin, nothing written): skip it
+      if (o.id === 9 || o.id >= 40) {      // firmware before 1.0.3 does not take id 9, nor one without ShinTech's ids 40..49
+                                           // (rc 1 at begin, nothing written): skip it
         const a = await ask([BACKUP_CMD.PUT, [0, o.id, ...bkU32(o.size), ...bkU32(o.crc)]]);
         if (a[2] === 1) { done += o.size; onProgress(done, total); continue; }
         bkCheck(a[2]);

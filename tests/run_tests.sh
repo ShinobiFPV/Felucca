@@ -315,6 +315,8 @@ if [ -f build/gen/felucca_tables.h ]; then
     run "ShinTech CHORD patterns: chords at their steps, TIE REST, notes, STYLE, tempo, hand chords, NEXT, SONG, recording, the cache, the pages, step entry, tools, undo" "$OUT/cpat_test"
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/cpat_store_test" tests/cpat_store_test.c -lm
     run "ShinTech CHORD pattern bank on flash: 64 read back after power-off, an object's others kept, power cuts, a damaged copy, quiet writes" "$OUT/cpat_store_test"
+    $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/shin_proto_test" tests/shin_proto_test.c -lm
+    run "ShinTech editor commands 90..96 (chord sets, styles, chord patterns) and backup ids 40..49" "$OUT/shin_proto_test"
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/poly6_test" tests/poly6_test.c -lm
     mkdir -p build/poly6_demo
     run "ShinTech POLY6: the ladder's response and self-oscillation, the chorus's delay sweep, stereo, VOICES, GATE, 32 presets, cost, demos" "$OUT/poly6_test" build/poly6_demo

@@ -49,10 +49,13 @@ _Static_assert(sizeof N_CHRD / sizeof N_CHRD[0] == CHRD_SET + 1u, "N_CHRD: SET l
 static const char *const N_CVOIC[] = {"CLOSE", "OPEN", "SPRD", "AUTO"};
 static const char *const N_CINV[] = {"AUTO", "ROOT", "1ST", "2ND", "3RD"};
 #include "chord_styles.h"              /* (tools/shintech/gen_styles.py) */
+#define CS_NUSER 16u                          /* ShinTech: the user's chord sets, after the factory ones (chordset.c) */
+#define CS_NALL (CS_NSETS + CS_NUSER)
 static const char *const N_P6CHO[] = {"OFF", "I", "II", "I+II"};          /* ShinTech POLY6 (eng_poly6.c) */
 static const char *const N_P6MODE[] = {"4ENV", "8ENV", "4GATE", "8GATE"};
-static const char *const N_CSTY[] = {"OFF", CST_CODES};   /* ShinTech CHORD: STYLE (style.c) */
-_Static_assert(sizeof N_CSTY / sizeof N_CSTY[0] == CST_NSTY + 1u, "N_CSTY: OFF and the styles");
+static const char *const N_CSTY[] = {"OFF", CST_CODES, "USER"};   /* ShinTech CHORD: STYLE (style.c; USER: the web
+                                                                    * editor's, Phase 5) */
+_Static_assert(sizeof N_CSTY / sizeof N_CSTY[0] == CST_NSTY + 2u, "N_CSTY: OFF, the styles, USER");
 #define CRNG_LO 36                    /* RANGE 0: C2 */
 static const char *const N_CRNG[] = {
     "C2", "C#2", "D2", "D#2", "E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2",
@@ -192,7 +195,7 @@ static const param_desc_t TP[P_COUNT] = {
     [P_ATSNS] = PE("AT", N_ATSNS, 0),
     [P_ATDST] = PE("ATDST", N_MDST, 0),
     [P_ATAMT] = PD("ATAMT", F_BIPCT, -64, 63, 0),
-    [P_CSET] = PD("SET", F_INT, 0, (int16_t)(CS_NSETS - 1u), 0),   /* ShinTech CHORD */
+    [P_CSET] = PD("SET", F_INT, 0, (int16_t)(CS_NALL - 1u), 0),   /* ShinTech CHORD */
     [P_CKEY] = PD("KEY", F_NOTE, 0, 11, 0),
     [P_CVOIC] = PE("CVOIC", N_CVOIC, 3),                           /* (not VOIC: the chord keys' P_VOIC has it) */
     [P_CINV] = PE("INV", N_CINV, 0),
@@ -365,9 +368,9 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
     *unit = "";
     fmt_named = d->fmt == F_ENUM;
     if (d == &TP[P_CSET]) {                         /* ShinTech CHORD: the set as its genre and its number there, "HSE2" */
-        uint32_t s = (uint32_t)clamp(v, 0, CS_NSETS - 1), g = CS_SET[s].genre;
-        str_cpy(val, CS_GENRE_CODE[g], 4);
-        fmt_int(val + str_len(val), (int32_t)(s - CS_GENRE_FIRST[g] + 1u));
+        uint32_t s = (uint32_t)clamp(v, 0, CS_NALL - 1), g = s < CS_NSETS ? CS_SET[s].genre : 0u;
+        str_cpy(val, s < CS_NSETS ? CS_GENRE_CODE[g] : "USR", 4);   /* (the user's: USR1..USR16) */
+        fmt_int(val + str_len(val), (int32_t)(s < CS_NSETS ? s - CS_GENRE_FIRST[g] + 1u : s - CS_NSETS + 1u));
         fmt_named = 1;
         return;
     }

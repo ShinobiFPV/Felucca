@@ -805,7 +805,7 @@ static __attribute__((noinline)) uint32_t cset_key(track_t *t, uint32_t k)
     switch (k) {
     case 0:                                             /* F3 SET -, G3 SET + (round) */
     case 2:
-        cset_param(t, P_CSET, (t->p[P_CSET] + (k ? 1 : (int32_t)CS_NSETS - 1)) % (int32_t)CS_NSETS);
+        cset_param(t, P_CSET, (t->p[P_CSET] + (k ? 1 : (int32_t)CS_NALL - 1)) % (int32_t)CS_NALL);
         break;
     case 3:                                             /* G#3 VOICING */
         cset_param(t, P_CVOIC, (t->p[P_CVOIC] + 1) % (CSV_AUTO + 1));

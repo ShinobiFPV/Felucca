@@ -19,11 +19,58 @@ typedef struct {
     uint8_t voicing, inv;                           /* defaults: CSV_*, 0..3 */
 } cs_chord_t;
 
-/* chord `key` (0..11) of set `set` -> c; 0 = no such set */
+/* the user's chord sets (ShinTech, Phase 5: written by the web editor, editor_shin.c; flash: cpat_store.c), SET
+ * CS_NSETS .. CS_NALL - 1 after the factory ones ("USR1".."USR16"). A chord: its root, a slash bass (0 none, else 1 + its
+ * pitch class), its default voicing | inversion << 2, the notes above the root as a mask (bit i - 1: i semitones, 1..24;
+ * at most CS_MAXN notes with the root, the lowest) */
+#ifndef CS_NUSER                                    /* (params.c has them first; the host tests build this alone) */
+#define CS_NUSER 16u
+#define CS_NALL (CS_NSETS + CS_NUSER)
+#endif
+#define CS_USER_MAGIC 0x31534355u                   /* "UCS1" */
+typedef struct { uint8_t root, bass, vi, iv[3]; } cs_uchord_t;
+typedef struct { uint8_t used, rsv; char name[CS_NAME_LEN]; cs_uchord_t ch[12]; } cs_uset_t;
+typedef struct { uint32_t magic; cs_uset_t set[CS_NUSER]; } cs_user_t;
+static cs_user_t cs_user __attribute__((section(".pool")));
+/* a user chord as chordset.c's (n: the root and the mask's notes, the lowest CS_MAXN) */
+static void cs_from_user(const cs_uchord_t *u, cs_chord_t *c)
+{
+    uint32_t i, m = u->iv[0] | (uint32_t)u->iv[1] << 8 | (uint32_t)u->iv[2] << 16;
+    c->root = (uint8_t)(u->root % 12u);
+    c->voicing = (uint8_t)(u->vi & 3u) > 2u ? 0u : (uint8_t)(u->vi & 3u);
+    c->inv = (uint8_t)((u->vi >> 2) & 3u);
+    c->bass = (int8_t)(u->bass && u->bass <= 12u ? u->bass - 1 : -1);
+    c->n = 1;
+    c->iv[0] = 0;
+    for (i = 0; i < 24u && c->n < CS_MAXN; i++)
+        if ((m >> i) & 1u)
+            c->iv[c->n++] = (int8_t)(i + 1u);
+    for (i = c->n; i < CS_MAXN; i++)
+        c->iv[i] = -1;
+    if (c->inv >= c->n)
+        c->inv = 0;
+}
+/* set s (factory or user) has a name and chords; its name -> b (CS_NAME_LEN + 1) */
+static int cs_set_ok(uint32_t s) { return s < CS_NSETS || (s < CS_NALL && cs_user.set[s - CS_NSETS].used); }
+static void cs_set_name(uint32_t s, char *b)
+{
+    const char *n = s < CS_NSETS ? CS_SET[s].name : s < CS_NALL && cs_user.set[s - CS_NSETS].used ? cs_user.set[s - CS_NSETS].name
+                                                                                            : "EMPTY";
+    uint32_t i;
+    for (i = 0; i < CS_NAME_LEN && n[i]; i++)
+        b[i] = n[i];
+    b[i] = 0;
+}
+
+/* chord `key` (0..11) of set `set` -> c; 0 = no such set (or an empty user set) */
 static int cs_get(uint32_t set, uint32_t key, cs_chord_t *c)
 {
     const uint8_t *b;
     uint32_t i;
+    if (set >= CS_NSETS && set < CS_NALL && key < 12u && cs_user.set[set - CS_NSETS].used) {
+        cs_from_user(&cs_user.set[set - CS_NSETS].ch[key], c);
+        return 1;
+    }
     if (set >= CS_NSETS || key >= 12u)
         return 0;
     b = CS_SET[set].ch[key];

@@ -56,7 +56,7 @@ static uint32_t chord_set_make(const track_t *t, uint32_t note, uint8_t *out, in
     *bp = -1;
     if (chord_hand)                                     /* (a chord pattern's hand-played chord: chord_build_hand) */
         c = *chord_hand;
-    else if (!cs_get((uint32_t)clamp(t->p[P_CSET], 0, CS_NSETS - 1), note % 12u, &c)) {
+    else if (!cs_get((uint32_t)clamp(t->p[P_CSET], 0, CS_NALL - 1), note % 12u, &c)) {
         out[0] = (uint8_t)note;
         *rp = (int32_t)note;
         *maskp = 0;

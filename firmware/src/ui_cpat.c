@@ -83,7 +83,7 @@ static int32_t cpe_value(uint32_t f, const cpat_t *p, int32_t *lo, int32_t *hi)
         *hi = 13 + p->nhand;
         return st->chord >= CPC_HAND ? 14 + st->chord - CPC_HAND : st->chord;
     case CPF_STYLE:
-        *hi = 1 + (int32_t)(CST_NSTY * CST_NVAR);
+        *hi = 1 + (int32_t)((CST_NSTY + 1u) * CST_NVAR);   /* (the USER style's too) */
         return st->style;
     case CPF_NOTE:                                    /* 0 none, 24 (C1) .. 108 (C8) */
         *hi = 108;
@@ -184,7 +184,7 @@ static void cpe_chord_name(const track_t *t, const cpat_t *p, const cp_step_t *s
 {
     cs_chord_t c;
     uint32_t key = p->key ? (uint32_t)(p->key - 1u) % 12u : (uint32_t)clamp(t->p[P_CKEY], 0, 11);
-    uint32_t set = p->set ? (uint32_t)clamp(p->set - 1, 0, CS_NSETS - 1) : (uint32_t)clamp(t->p[P_CSET], 0, CS_NSETS - 1);
+    uint32_t set = p->set ? (uint32_t)clamp(p->set - 1, 0, CS_NALL - 1) : (uint32_t)clamp(t->p[P_CSET], 0, CS_NALL - 1);
     b[0] = 0;
     if (st->chord >= CPC_SET && st->chord < CPC_SET + 12u) {
         if (!cs_get(set, st->chord - CPC_SET, &c))

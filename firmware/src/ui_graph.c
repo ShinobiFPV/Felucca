@@ -422,8 +422,7 @@ static void graph_chord(const track_t *t, uint16_t c)
         cap = "ON ROOT";
     }
     if (set) {                                          /* ShinTech: the set's name (12 characters: no 0 then) */
-        memcpy(sn, CS_SET[clamp(t->p[P_CSET], 0, CS_NSETS - 1)].name, CS_NAME_LEN);
-        sn[CS_NAME_LEN] = 0;
+        cs_set_name((uint32_t)clamp(t->p[P_CSET], 0, CS_NALL - 1), sn);
         cap = sn;
     }
     if (trk_vmode(t) != V_POLY)
@@ -463,10 +462,10 @@ static void graph_style(const track_t *t, uint16_t c)
         panel_note("STYLE OFF", "[K1] A STYLE PLAYS THE CHORD", 0);
         return;
     }
-    v = &CST_VAR[sty_var_of(t)];
+    v = sty_v(sty_var_of(t));
     memcpy(b, v->name, CST_NAME_LEN);
     b[CST_NAME_LEN] = 0;
-    str_cpy(cap, CST_NAME[t->p[P_CSTY] - 1], sizeof cap);
+    str_cpy(cap, t->p[P_CSTY] > (int16_t)CST_NSTY ? "USER" : CST_NAME[t->p[P_CSTY] - 1], sizeof cap);
     str_cpy(cap + str_len(cap), "  ", sizeof cap - str_len(cap));
     str_cpy(cap + str_len(cap), CST_RATE_NAME[v->rate], sizeof cap - str_len(cap));
     cv_text_on(14, 8, &AF_M, b, T_TEXT, T_SURF);
@@ -485,7 +484,7 @@ static void graph_style(const track_t *t, uint16_t c)
                 (i * CST_NUM[v->rate] * 12u / CST_DEN[v->rate]) % 12u ? T_RAISE : T_MID);
     for (r = 0; r < cells; r += v->steps)
         for (i = 0; i < v->nev; i++) {
-            const uint8_t *e = CST_EV[v->ev + i];
+            const uint8_t *e = sty_e(sty_var_of(t), i);
             uint32_t sel = e[1] & 63u, len = ((e[3] & 63u) + 1u) * w / 4u, k, h, cyc = tot > 1u ? 2u * tot - 2u : 1u;
             uint32_t x = x0 + (r + e[0]) * w;
             if (sel == SS_A || sel == SS_U)

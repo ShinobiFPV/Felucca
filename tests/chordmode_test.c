@@ -159,7 +159,7 @@ int main(void)
     t->p[P_CSET] = 0;
     key_down(K(53));                                             /* F3: SET - from the first: the last */
     key_up(K(53));
-    ck("F3 on the first set: the last one (round)", t->p[P_CSET] == (int16_t)(CS_NSETS - 1u));
+    ck("F3 on the first set: the last one, USR16 (round)", t->p[P_CSET] == (int16_t)(CS_NALL - 1u));
     key_down(K(55));                                             /* G3: SET + */
     key_up(K(55));
     ck("G3: SET + (back to the first)", t->p[P_CSET] == 0);

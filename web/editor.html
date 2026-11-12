@@ -1825,10 +1825,10 @@ function makeMockDevice(opt = {}) {
   {   /* ShinTech CHORD (106..111): the chord set, KEY, VOICING, INVERSION, RANGE (C2..C6), BASS (firmware params.c) */
     const RNG = [];
     for (let v = 0; v <= 48; v++) RNG.push(NOTE_NAMES[v % 12] + (2 + Math.floor(v / 12)));
-    TP.push(D("SET", F.INT, 0, 99, 0), D("KEY", F.NOTE, 0, 11, 0), E("CVOIC", ["CLOSE", "OPEN", "SPRD", "AUTO"], 3),
+    TP.push(D("SET", F.INT, 0, 115, 0), D("KEY", F.NOTE, 0, 11, 0), E("CVOIC", ["CLOSE", "OPEN", "SPRD", "AUTO"], 3),
       E("INV", ["AUTO", "ROOT", "1ST", "2ND", "3RD"], 0), E("RNG", RNG, 19), E("BASS", ["OFF", "ON"], 0));
     /* .. its styles (112..115): STYLE, VARIATION (1..12), HOLD, STRUM (ms, 0 AUTO; firmware style.c) */
-    TP.push(E("STYLE", ["OFF", "ARP1", "ARP2", "BEAT1", "BEAT2", "BEAT3", "STRM1", "STRM2", "STRM3", "STRM4"], 0),
+    TP.push(E("STYLE", ["OFF", "ARP1", "ARP2", "BEAT1", "BEAT2", "BEAT3", "STRM1", "STRM2", "STRM3", "STRM4", "USER"], 0),
       D("VAR", F.INT, 0, 11, 0), E("CHOLD", ["OFF", "ON"], 0), D("STRUM", F.INT, 0, 60, 0));
     TP.push(D("CPAT", F.INT, 0, 64, 0));   /* .. its chord pattern (116: OFF, 1..64; firmware cpat.c) */
     TP.push(E("BBD", ["OFF", "I", "II", "I+II"], 0), E("VOX", ["4ENV", "8ENV", "4GATE", "8GATE"], 0));   /* POLY6 (117, 118) */

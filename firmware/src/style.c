@@ -53,11 +53,33 @@ typedef struct {
 } sty_t;
 static sty_t sty[NTRK] __attribute__((section(".pool")));
 
+/* STYLE USER (ShinTech, Phase 5): twelve variations of the user's (the web editor's, editor_shin.c; flash:
+ * cpat_store.c), the factory's format (gen_styles.py), variation index CST_NSTY * CST_NVAR + k. An empty one (no steps:
+ * none stored) plays nothing */
+#define STY_NUSER (CST_NSTY * CST_NVAR)            /* the first user variation's index */
+#define STY_USER_MAGIC 0x31595355u                  /* "USY1" */
+#define STY_MAXEV 32u
+typedef struct { uint32_t magic; cst_var_t var[CST_NVAR]; uint8_t ev[CST_NVAR][STY_MAXEV][4]; } sty_user_t;
+static sty_user_t sty_user __attribute__((section(".pool")));
+static const cst_var_t STY_EMPTY = {0, 0, 16, 3, 0, 1, 0, "EMPTY"};
+static const cst_var_t *sty_v(uint32_t var)     /* variation var's header */
+{
+    const cst_var_t *v;
+    if (var < STY_NUSER)
+        return &CST_VAR[var];
+    v = &sty_user.var[(var - STY_NUSER) % CST_NVAR];
+    return v->steps && v->steps <= 64u && v->rate < 9u && v->nev <= STY_MAXEV && v->oct >= 1u && v->oct <= 3u ? v : &STY_EMPTY;
+}
+static const uint8_t *sty_e(uint32_t var, uint32_t i)   /* its event i */
+{
+    return var < STY_NUSER ? CST_EV[CST_VAR[var].ev + i] : sty_user.ev[(var - STY_NUSER) % CST_NVAR][i % STY_MAXEV];
+}
+
 /* the track plays styles: STYLE on a CHRD SET track (no kit) */
 static int sty_wants(const track_t *t) { return t->p[P_CSTY] > 0 && chord_set_on(t); }
 static uint32_t sty_var_of(const track_t *t)
 {
-    return (uint32_t)(clamp(t->p[P_CSTY], 1, CST_NSTY) - 1) * CST_NVAR + (uint32_t)clamp(t->p[P_CVAR], 0, CST_NVAR - 1);
+    return (uint32_t)(clamp(t->p[P_CSTY], 1, CST_NSTY + 1) - 1) * CST_NVAR + (uint32_t)clamp(t->p[P_CVAR], 0, CST_NVAR - 1);
 }
 
 /* a step of the variation, straight (its length, whatever the swing) and as it plays (swung, a straight rate) */
@@ -188,10 +210,10 @@ static uint32_t sty_ev_len(const cst_var_t *v, const uint8_t *e) { return sty_ba
 
 static void sty_fire(track_t *t, sty_t *s)           /* the step starts: its events */
 {
-    const cst_var_t *v = &CST_VAR[s->var];
+    const cst_var_t *v = sty_v(s->var);
     uint32_t i;
     for (i = 0; i < v->nev; i++) {
-        const uint8_t *e = CST_EV[v->ev + i];
+        const uint8_t *e = sty_e(s->var, i);
         if (e[0] == s->step)
             sty_event(t, s, v, e, sty_ev_len(v, e), 1);
     }
@@ -201,10 +223,10 @@ static void sty_fire(track_t *t, sty_t *s)           /* the step starts: its eve
  * again on it, unstrummed */
 static void sty_restrike(track_t *t, sty_t *s)
 {
-    const cst_var_t *v = &CST_VAR[s->var];
+    const cst_var_t *v = sty_v(s->var);
     uint32_t i, base = sty_base(v);
     for (i = 0; i < v->nev; i++) {
-        const uint8_t *e = CST_EV[v->ev + i];
+        const uint8_t *e = sty_e(s->var, i);
         uint32_t d = (s->step + v->steps - e[0]) % v->steps, at = d * base + s->pos, ln = sty_ev_len(v, e);
         if ((e[1] & 63u) < SS_UP && at < ln && ln - at >= base / 2u)
             sty_event(t, s, v, e, ln - at, 0);
@@ -215,7 +237,7 @@ static void sty_begin(track_t *t, sty_t *s)          /* from step 1, now */
 {
     const cst_var_t *v;
     s->var = (uint8_t)sty_var_of(t);
-    v = &CST_VAR[s->var];
+    v = sty_v(s->var);
     s->step = 0;
     s->pos = 0;
     s->ai = 0;
@@ -325,7 +347,7 @@ static __attribute__((noinline)) void sty_block(track_t *t, uint32_t n, uint32_t
         sty_stop(t);                                   /* STYLE OFF, CHRD not SET, a kit; CHOLD off, nothing held */
     if (!s->on && s->nslot && (!t->p[P_CHOLD] || !chord_set_on(t)))
         sty_unlatch(t);                                /* (stopped, its slots are a held chord's) */
-    v = &CST_VAR[s->var];
+    v = sty_v(s->var);
     adv = clock_mode ? sty_advance(s, seq_n, CST_DEN[v->rate]) : n;
     real = clock_mode && song.playing ? adv : n;
     for (i = s->nslot; i--;) {                         /* the notes: strums start, lengths run out */
@@ -354,7 +376,7 @@ static __attribute__((noinline)) void sty_block(track_t *t, uint32_t n, uint32_t
     }
     if (s->var != sty_var_of(t)) {                     /* another VAR / STYLE: on at this step */
         s->var = (uint8_t)sty_var_of(t);
-        v = &CST_VAR[s->var];
+        v = sty_v(s->var);
         s->step = (uint8_t)(s->step % v->steps);
         s->len = sty_step_len(t, v, s->step);
     }

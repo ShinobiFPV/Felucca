@@ -137,6 +137,25 @@ static int cp_hand_add(cpat_t *p, const cp_hand_t *h)
     return p->nhand++;
 }
 
+/* p is a pattern the player can play: every field in its range (the editor's writes, a backup's restore) */
+static int cp_valid(const cpat_t *p)
+{
+    uint32_t i;
+    if (p->len > CP_STEPS || p->div > 9u || p->set > CS_NALL || p->key > 12u || p->next > CP_N || p->nhand > CP_HANDS)
+        return 0;
+    for (i = 0; i < CP_STEPS; i++) {
+        const cp_step_t *s = &p->step[i];
+        if ((s->chord > CPC_SET + 11u && s->chord < CPC_HAND) || s->chord >= CPC_HAND + CP_HANDS ||
+            (s->chord >= CPC_HAND && s->chord - CPC_HAND >= p->nhand) || s->style >= 2u + (CST_NSTY + 1u) * CST_NVAR ||
+            s->note > 127u || s->tempo > 201u)
+            return 0;
+    }
+    for (i = 0; i < p->nhand; i++)
+        if (p->hand[i].root > 11u)
+            return 0;
+    return 1;
+}
+
 /* --------------------------------------------------------- the player --- */
 static void cp_chord_off(track_t *t, cp_play_t *c)   /* the chord it holds ends */
 {
@@ -188,7 +207,7 @@ static void cp_apply_style(track_t *t, uint32_t code)
 {
     if (code == 1u)
         t->p[P_CSTY] = 0;
-    else if (code >= 2u && code < 2u + CST_NSTY * CST_NVAR) {
+    else if (code >= 2u && code < 2u + (CST_NSTY + 1u) * CST_NVAR) {   /* (the USER style too) */
         t->p[P_CSTY] = (int16_t)((code - 2u) / CST_NVAR + 1u);
         t->p[P_CVAR] = (int16_t)((code - 2u) % CST_NVAR);
     }
@@ -196,7 +215,7 @@ static void cp_apply_style(track_t *t, uint32_t code)
 static void cp_begin_pattern(track_t *t, const cpat_t *p)   /* a pattern starts: its set and KEY */
 {
     if (p->set)
-        t->p[P_CSET] = (int16_t)clamp(p->set - 1, 0, CS_NSETS - 1);
+        t->p[P_CSET] = (int16_t)clamp(p->set - 1, 0, CS_NALL - 1);
     if (p->key)
         t->p[P_CKEY] = (int16_t)((p->key - 1) % 12);
 }
@@ -351,7 +370,7 @@ static uint32_t cp_rec_target(const cp_play_t *c, const cpat_t *p)
 }
 static void cp_mark_set(const track_t *t, cpat_t *p)   /* a pattern written now: the track's set and KEY its own */
 {
-    p->set = (uint8_t)(clamp(t->p[P_CSET], 0, CS_NSETS - 1) + 1);
+    p->set = (uint8_t)(clamp(t->p[P_CSET], 0, CS_NALL - 1) + 1);
     p->key = (uint8_t)(clamp(t->p[P_CKEY], 0, 11) + 1);
 }
 /* a chord key (chord: CPC_SET + k) pressed on a recording track: into the pattern; the pattern's chord ends (the key
